@@ -1,0 +1,5 @@
+*.o
+*.hi
+_site
+_css
+_cache

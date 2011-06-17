@@ -1,0 +1,293 @@
+div#navigation {
+    text-align: center;
+    border-bottom: 4px solid black;
+}
+
+div#navigation a {
+    color: white;
+    text-decoration: none;
+    background-color: black;
+    padding: 3px 10px 3px 10px;
+    margin: 0px 10px 0px 10px;
+}
+
+
+body {
+  background: #fff url('1') top left fixed;
+  color: #202020;
+  font: normal 120%/140% "Georgia, serif";
+  margin: 0;
+  padding: 0;
+  text-align: center; /* for ie5.5/win */
+}
+
+a, a:active, a:visited {
+  color: #c03030;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+a img {
+    border: 0;
+}
+
+blockquote, ol, p, ul {
+  margin: 0 0 1.5em;
+  padding: 0;
+}
+
+ol, ul {
+  margin-left: 2em;
+  margin-right: 2em;
+}
+
+blockquote {
+  border-left: 2px solid #222;
+  font-style: italic;
+  margin-left: 1em;
+  padding: 0 2em 0 1em;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: #222;
+  margin: 0 0 1.5em;
+  padding: 0;
+}
+
+h1 {
+  font-size: 3em;
+  line-height: 1;
+  margin-bottom: .5em;
+}
+
+h1 a, h1 a:visited, h1 a:active {
+  color: #222;
+}
+
+h1 a:hover {
+  color: #c03030;
+  text-decoration: none;
+}
+
+h2 {
+  color: #999;
+  font-size: 1em;
+  margin-bottom: .5em;
+}
+
+h3 {
+  font-size: 1.4em;
+}
+
+
+/* Content container */
+#content {
+  margin: 1.5em auto 0;
+  text-align: left;
+  width: 750px;
+}
+
+
+/* Metadata */
+#meta {
+  list-style: none;
+  margin: 0.75em 0 0;
+  padding: 0;
+  text-align: right;
+}
+
+#meta li {
+  display: inline;
+}
+
+
+		/* Search */
+		#search { margin: 0 0 0.75em; text-align: right; }
+		
+
+		/* Search Result Count */
+		#searchresultcount { margin: 1.5em 0; text-align: center; }
+
+
+/* Individual Posts */
+.post {
+  border-top: 1px solid #999;
+  padding: 2em 0 1em;
+}
+
+.post .date {
+  border-top: 3px solid #cccccc;
+  border-bottom: 1px solid #cccccc;
+  float: left;
+  padding: .25em 1em;
+  text-align: center;
+}
+
+.post .date .month, .post .date .day, .post .date .time {
+  color: #999;
+  display: block;
+  font-weight: normal;
+}
+
+.post .date .month {
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.post .date .day {
+  font-size: 1.3em;
+  font-weight: bold;
+}
+
+.post .date a, .post .date a:visited, .post .date a:active {
+  font-weight: normal;
+}
+
+.post .regular, .post .quote, .post .link, .post .conversation,
+.post .photo, .post .video, .post .audio {
+  margin-left: 7em;
+  padding: 0;
+}
+
+.post .photo .caption, .post .video .caption,
+.post .quote .source, .post .audio .caption {
+  display: block;
+  margin-bottom: 1.5em;
+}
+
+.post .quote .source {
+  font-style: italic;
+  text-align: right;
+}
+
+.post .conversation ul {
+  list-style: none;
+  margin: 0 .5em 1.5em;
+  padding: 0;
+}
+
+.post .conversation ul li {
+  padding: .5em 0;
+}
+
+.post .conversation ul li .person {
+  font-weight: bold;
+  margin-right: 1em;
+}
+
+.post .post-footer {
+  color: #404040;
+  margin-left: 7em;
+  text-align: right;
+}
+
+.post .post-footer .permalink, .post .post-footer .when, .post .post-footer .tags, .post .post-footer .source-url {
+  font-size: .75em;
+  font-weight: normal;
+  margin-left: 1em;
+}
+
+.post .post-footer .source-url a { margin-right: 0.75em; font-weight: normal; }
+
+.post .post-footer .source-url a img {
+    -moz-opacity: 0.45;
+    opacity: 0.45;
+    vertical-align: text-top;
+    margin-left: 2px;
+}
+
+.post .post-footer .source-url a:hover img {
+    -moz-opacity: 0.65;
+    opacity: 0.65;
+}
+
+/* Previous and Next Links */
+#prev-next {
+  margin-left: 7em;
+  padding: 1.5em 0 3em;
+}
+
+#prev {
+  margin-right: 1.5em;
+}
+
+#next {
+  margin-left: 1.5em;
+}
+
+#footer {
+  border-top: 1px solid #999;
+  font-size: .85em;
+}                           
+
+#footer a, #footer a:active, #footer a:visited {
+  color: #222;
+}
+
+#footer ul {
+  list-style: none;
+  margin: 1em 0;
+  padding: 0;
+  text-align: center;
+}
+
+#footer ul li {
+  display: inline;
+  margin: 0.5em;
+}
+
+	.query { font-weight: bold; }
+
+.regular img {
+    max-width: 100%;
+}
+
+#disqus_thread, ol.notes {
+    width: 448px;
+    margin: 30px 0 30px 112px;
+}
+    
+    ol.notes {
+        list-style-type: none;
+    }
+
+.search_query { font-weight: bold; }
+
+/* Tags */
+.tags { display: block; }
+.tags .tag { margin-right: 0.75em; font-weight: normal; }
+
+#tagpageblurb { margin: 1.5em 0; text-align: center; }
+#tagpageblurb .tag { font-weight: bold; }
+
+/* Gitit styles */
+/* Loosely based on pygment's default colors */
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode, table.sourceCode pre 
+   { margin: 0; padding: 0; border: 0; vertical-align: baseline; border: none; }
+td.lineNumbers { border-right: 1px solid #AAAAAA; text-align: right; color: #AAAAAA; padding-right: 5px; padding-left: 5px; }                  
+td.sourceCode { padding-left: 5px; background: #EEE; }
+pre.sourceCode, .code { font-size: 15px; line-height: 17px; padding: 5px; 
+                        background: #EEE }
+pre.sourceCode         { overflow: auto; overflow-y: hidden;}
+pre.sourceCode span.kw { color: #007020; font-weight: bold; } 
+pre.sourceCode span.dt { color: #902000; }
+pre.sourceCode span.dv { color: #40a070; }
+pre.sourceCode span.bn { color: #40a070; }
+pre.sourceCode span.fl { color: #40a070; }
+pre.sourceCode span.ch { color: #4070a0; }
+pre.sourceCode span.st { color: #4070a0; }
+pre.sourceCode span.co { color: #60a0b0; font-style: italic; }
+pre.sourceCode span.ot { color: #007020; }
+pre.sourceCode span.al { color: red; font-weight: bold; }
+pre.sourceCode span.fu { color: #06287e; }
+pre.sourceCode span.re { }
+pre.sourceCode span.er { color: red; font-weight: bold; }
+
+/* Disqus */
+#dsq-content h3 { font-size: 16pt; font-weight: bold;}
+
+/* Custom CSS */
