@@ -6,7 +6,12 @@ import Control.Arrow ((>>>), (***), arr)
 import Control.Category (id)
 import Data.Monoid (mempty, mconcat)
 
+import System.FilePath.Posix
+
 import Hakyll
+
+-- friends
+import Lambdalog.Util
 
 main :: IO ()
 main = hakyll $ do
@@ -15,15 +20,20 @@ main = hakyll $ do
         route   idRoute
         compile compressCssCompiler
 
+
     -- Render posts
     match "posts/*" $ do
         route   $ setExtension ".html"
         compile $ pageCompiler
-            >>> arr (renderDateField "date" "%B %e, %Y" "Date unknown")
+            >>> arr (renderDateFields ("%e", "%b", "%Y") ("1", "Jan", "2001"))
             >>> renderTagsField "prettytags" (fromCapture "tags/*")
+            >>> arr (renderField "path" "disqusId" takeBaseName)
+            >>> arr (copyBodyToField "renderedPost")
             >>> applyTemplateCompiler "templates/post.html"
             >>> applyTemplateCompiler "templates/default.html"
             >>> relativizeUrlsCompiler
+            >>> traceShowCompiler
+
 
     -- Render posts list
     match "posts.html" $ route idRoute
@@ -76,7 +86,7 @@ main = hakyll $ do
 addPostList :: Compiler (Page String, [Page String]) (Page String)
 addPostList = setFieldA "posts" $
     arr (reverse . sortByBaseName)
-        >>> require "templates/postitem.html" (\p t -> map (applyTemplate t) p)
+        >>> require "templates/postbody.html" (\p t -> map (applyTemplate t) p)
         >>> arr mconcat
         >>> arr pageBody
 
@@ -92,8 +102,8 @@ makeTagList tag posts =
 
 feedConfiguration :: FeedConfiguration
 feedConfiguration = FeedConfiguration
-    { feedTitle       = "SimpleBlog RSS feed."
-    , feedDescription = "A simple demo of an RSS feed created with Hakyll."
-    , feedAuthorName  = "Jasper Van der Jeugt"
-    , feedRoot        = "http://example.com"
+    { feedTitle       = "Lambdalog"
+    , feedDescription = "RSS feed for Lambdalog"
+    , feedAuthorName  = "Sean Seefried"
+    , feedRoot        = "http://lambdalog.seanseefried.com"
     }

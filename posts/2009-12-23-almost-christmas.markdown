@@ -4,6 +4,13 @@ author: Publius Vergilius Maro
 tags: christmas, random crap
 ---
 
+~~~{.haskell}
+module Something where
+
+foo :: Int -> Int
+foo x = x
+~~~
+
 Morbi tincidunt eleifend ante, eu gravida ante rutrum vel. Nunc bibendum nulla
 tellus, eget egestas sapien. Nam rhoncus interdum libero, eget congue orci
 imperdiet eu. Quisque pellentesque fringilla urna, ac venenatis ante ultricies
