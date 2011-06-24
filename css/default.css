@@ -275,6 +275,12 @@ td.lineNumbers {
   padding-right: 5px;
   padding-left: 5px;
 }
+
+pre code {
+  display: block;
+  padding: 5px;
+  background: #EEE;
+}
 td.sourceCode { padding-left: 5px; background: #EEE; }
 pre.sourceCode, .code {
   font-size: 15px;

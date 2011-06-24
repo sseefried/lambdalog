@@ -13,6 +13,7 @@ import Hakyll
 -- friends
 import Lambdalog.Util
 
+
 main :: IO ()
 main = hakyll $ do
     -- Compress CSS
@@ -20,14 +21,13 @@ main = hakyll $ do
         route   idRoute
         compile compressCssCompiler
 
-
     -- Render posts
     match "posts/*" $ do
         route   $ setExtension ".html"
         compile $ pageCompiler
             >>> arr (renderDateFields ("%e", "%b", "%Y") ("1", "Jan", "2001"))
             >>> renderTagsField "prettytags" (fromCapture "tags/*")
-            >>> arr (renderField "path" "disqusId" takeBaseName)
+            >>> arr setDisqusId
             >>> arr (copyBodyToField "renderedPost")
             >>> applyTemplateCompiler "templates/post.html"
             >>> applyTemplateCompiler "templates/default.html"

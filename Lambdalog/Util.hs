@@ -6,7 +6,9 @@ import Data.Maybe (fromMaybe)
 import Data.Time.Clock (UTCTime)
 import Data.Time.Format (parseTime, formatTime)
 import System.FilePath (takeFileName)
-import System.Locale (TimeLocale, defaultTimeLocale)  
+import System.FilePath.Posix
+import System.Locale (TimeLocale, defaultTimeLocale)
+
 
 renderDateFields :: (String, String, String) -- ^ Format to use on the (day, month,year) fields
                  -> (String, String, String)      -- ^ Default value
@@ -26,3 +28,11 @@ renderDateFields (dayFormat, monthFormat, yearFormat) defaultValue page =
                           "%Y-%m-%d"
                           dateString :: Maybe UTCTime
         return $ (aux dayFormat time, aux monthFormat time, aux yearFormat time)
+
+
+setDisqusId :: Page String -> Page String
+setDisqusId page = setField key disqusId page
+  where
+    key = "disqusId"
+    path = getField "path" page
+    disqusId = fromMaybe (takeBaseName path) $ getFieldMaybe key page
