@@ -1,3 +1,5 @@
 #!/bin/bash
 
-scp -r _site/* 'mco:/home/sseefried/domains/lambdalog.seanseefried.com/public'
+TGT="mco:/home/sseefried/domains/lambdalog.seanseefried.com/public"
+echo "Deploying to $TGT"
+rsync -avz _site/* "$TGT"
