@@ -2,7 +2,6 @@
 title: Context sensitive aliases for git
 tags: git
 ---
-Context sensitive aliases for git
 
 As developers many of us use git. Recently Peteris Krumins wrote a post about git aliases. The basic idea was to make aliases such as
 
