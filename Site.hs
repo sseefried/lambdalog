@@ -33,7 +33,6 @@ main = hakyll $ do
             >>> applyTemplateCompiler "templates/default.html"
             >>> relativizeUrlsCompiler
 
-
     -- Render posts list
     match "posts.html" $ route idRoute
     create "posts.html" $ constA mempty
