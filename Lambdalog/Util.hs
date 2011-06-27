@@ -34,4 +34,4 @@ setDisqusId page = setField key disqusId page
   where
     key = "disqusId"
     path = getField "path" page
-    disqusId = fromMaybe (take 50 . takeBaseName $ path) $ getFieldMaybe key page
+    disqusId = fromMaybe (take 80 . takeBaseName $ path) $ getFieldMaybe key page
