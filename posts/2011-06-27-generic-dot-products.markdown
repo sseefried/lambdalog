@@ -47,8 +47,18 @@ The process I am following is roughly as follows:
   algorithm. To call it a hunch that the underlying data structure is going to
   be tree-like is an understatement.
 
-In this post I will present my results in developing an implementation for a
-*generic dot product*. The result is surprisingly elegant.
+This post is a preamble. It develops a *generic dot product*
+implementation that will serve as a specification for the derivation
+of an efficient algorithm in a later post.
+
+# Background
+
+In order to understand this post I highly recommend that your read [Conor
+McBride's](http://strictlypositive.org/) and [Ross Paterson's](http://www.soi.city.ac.uk/~ross/)
+paper: [Applicative programming with
+effects](http://www.soi.city.ac.uk/~ross/papers/Applicative.pdf).
+
+A basic grasp of linear algebra would also be helpful.
 
 # What is a dot product?
 
@@ -355,7 +365,7 @@ structure's shape in its type so that <code>Applicative</code> instances can be 
 be important later on when we want to take the transpose of generic matrices, but I'm getting ahead
 of myself.)
 
-But what if you want to use binary associative operators other than addition and multiplcation for
+But what if you want to use binary associative operators other than addition and multiplication for
 the dot product? This is easy using Haskell's <code>Monoid</code> type class, and it plays nicely
 with the <code>Foldable</code> type class. In fact, it allows us to omit any mention of identity
 elements using the method <code>fold:: (Foldable t, Monoid m) => t m -> m</code>. We define an even
