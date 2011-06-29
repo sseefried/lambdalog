@@ -8,19 +8,16 @@ This is the first in a series of posts about program derivation. In particular I
 am attempting to derive a matrix multiplication algorithm that runs
 efficiently on parallel architectures such as GPUs.
 
-As I mentioned in an earlier
-[post](/posts/2011-05-16-reifying-type-classes-with-gadts.html), I've been
-contributing to the [Accelerate](http://hackage.haskell.org/package/accelerate)
-project. One of the primary design goals is to generate code for parallel
-architectures, in particular GPUs.  The Accelerate EDSL defines various
-*parallel primitives* such as <code>map</code>, <code>fold</code>,
+As I mentioned in an earlier [post](/posts/2011-05-16-reifying-type-classes-with-gadts.html), I've
+been contributing to the [Accelerate](http://hackage.haskell.org/package/accelerate) project. The
+Accelerate EDSL defines various *parallel primitives* such as <code>map</code>, <code>fold</code>,
 and <code>scan</code> (and many more).
 
-The <code>scan</code> primitive (also known as *all-prefix-sums*) is quite
-famous because it is useful in a wide range of parallel algorithms and, at first
-glance, one could be forgiven for thinking it is not amenable to
-parallelisation. A well-known [work efficient](link me) algorithm for
-<code>scan</code> was popularised by Guy Blelloch which performs $O(n)$ work.
+The <code>scan</code> primitive (also known as *all-prefix-sums*) is quite famous because it is
+useful in a wide range of parallel algorithms and, at first glance, one could be forgiven for
+thinking it is not amenable to parallelisation. However, one does exist; a well-known [work
+efficient](link me) algorithm for <code>scan</code> was popularised by Guy Blelloch which performs
+$O(n)$ work.
 
 The algorithm is undeniably clever. Looking at it, it is not at all
 obvious how one might have gone about developing it oneself. A
@@ -38,7 +35,7 @@ The process I am following is roughly as follows
 * generalise the concept of matrix multiplication to data structures other than
   lists or arrays.
 
-* develop an generic implementation that relies, as far as possible,
+* develop a generic implementation that relies, as far as possible,
   on reusable algebraic machinery in type classes such as
   [Functor](http://hackage.haskell.org/packages/archive/base/latest/doc/html/Prelude.html#t:Functor),
   [Applicative](http://hackage.haskell.org/packages/archive/base/latest/doc/html/Control-Applicative.html),
@@ -55,13 +52,13 @@ In this post I will present my results in developing an implementation for a
 
 # What is a dot product?
 
-In mathematics the *dot product* is usually define on vectors. Given two vectors
+In mathematics the *dot product* is usually defined on vectors. Given two vectors
 of length $n$, $(a_1, \dots, a_n)$ and $(b_1, \dots, b_n)$ the dot product is
 defined as:
 
 $a_1 b_1 + \dots + a_n b_n$
 
-or equivalently:
+or without the use of the pernicious "$\dots$":
 
 $\sum_{i=1}^{n}{a_i b_i}$
 
@@ -110,7 +107,7 @@ second tree, multiply them together and then sum all the results together.
 
 This definition relies on the two trees having the same shape. To see why let's
 see if we can we define a function in the style of <code>zipWith</code> for
-trees? This is problematic.
+trees. Unfortunately, this is problematic.
 
 ~~~{.haskell}
 zipWithT f (Leaf a) (Leaf b)           = Leaf (f a b)
@@ -123,10 +120,11 @@ zipWithT f (Branch s t) (Leaf b)       = {- ? -} undefined
 There's a problem with the last two cases.
 While I won't go so far as to say that there is no definition we could provide,
 it's clear that there are a number of choices that could be taken. In each case
-one needs to take an arbitrary element from the non-leaf argument and apply
-function <code>f</code> to it and then leaf argument. Also, it's hard to answer
-the question of whether it's possible to provide a <code>zipWith</code>-like
-definition for an arbitrary data structure.
+one needs to take an arbitrary element from the <code>Branch</code> argument and apply
+function <code>f</code> to it and the <code>Leaf</code> argument.
+
+Even if there is a definition that makes reasonable sense can we say whether it's possible to
+provide a <code>zipWith</code>-like definition for an arbitrary data structure?
 
 An alternative is to modify our data structures to contain phantom types that
 represent the *shape* of the data structure. We can then define <code>dot</code>
@@ -142,7 +140,8 @@ trees. Vectors are just lists with their length encode into their type.
 First, we add some essentials to the top of our module.
 
 ~~~{.haskell}
-{-# LANGUAGE GADTs, EmptyDataDecls #-}
+{-# LANGUAGE GADTs, EmptyDataDecls, FlexibleInstances, DeriveFunctor, DeriveFoldable #-}
+{-# LANGUAGE ScopedTypeVariables, FlexibleContexts, UndecidableInstances #-}
 ~~~
 
 Now we define two new data types, <code>Z</code> and <code>S</code>,
@@ -249,13 +248,15 @@ dot :: (Num a, Foldable f, Applicative f) => f a -> f a -> a
 dot x y = foldl (+) 0 (liftA2 (*) x y)
 ~~~
 
-Given that instances for <code>Functor</code> and <code>Foldable</code> are both
-derivable (using Haskell's <code>deriving</code> syntax), one need only define
-an <code>Applicative</code> instance to make <code>dot</code> applicable.
+This function requires instances for <code>Functor</code>, <code>Foldable</code> and
+<code>Applicative</code>.  Given that instances for the first two type classes are both easy to
+write (and in some cases derivable using Haskell's <code>deriving</code> syntax), I will only
+discuss <code>Applicative</code> instances in this post. (The instances for vectors and
+shape-encoded trees are left as an exercise for the reader.)
 
-One might reasonably wonder, must the two arguments to <code>dot</code> have the
-same shape as before? It turns out that, yes, they do and for similar
-reasons. I'll demonstrate the point by looking at lists, vectors and trees.
+One might reasonably wonder, must the two arguments to <code>dot</code> have the same shape as
+before? It turns out that, yes, they do and for similar reasons. I'll demonstrate the point by
+looking at how to define <code>Applicative</code> instances for lists, vectors and trees.
 
 ## Lists
 
