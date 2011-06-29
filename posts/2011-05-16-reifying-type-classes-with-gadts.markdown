@@ -1,6 +1,7 @@
 ---
 title: Reifying Type Classes with GADTs
 author: Sean Seefried
+category: haskell
 tags: GADTs, Haskell, type classes
 ---
 
