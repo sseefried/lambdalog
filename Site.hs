@@ -5,14 +5,16 @@ import Prelude hiding (id)
 import Control.Arrow ((>>>), (***), arr)
 import Control.Category (id)
 import Data.Monoid (mempty, mconcat)
-
-import System.FilePath.Posix
-
+import Text.Pandoc (writerHTMLMathMethod, HTMLMathMethod(..))
 import Hakyll
 
 -- friends
 import Lambdalog.Util
 
+lambdalogPageCompiler = pageCompilerWithPandoc defaultHakyllParserState opts id
+  where
+    opts = defaultHakyllWriterOptions {
+      writerHTMLMathMethod = MathJax "http://cdn.mathjax.org/mathjax/latest/MathJax.js" }
 
 main :: IO ()
 main = hakyll $ do
@@ -24,7 +26,7 @@ main = hakyll $ do
     -- Render posts
     match "posts/*" $ do
         route   $ setExtension ".html"
-        compile $ pageCompiler
+        compile $ lambdalogPageCompiler
             >>> arr (renderDateFields ("%e", "%b", "%Y") ("1", "Jan", "2001"))
             >>> renderTagsField "prettytags" (fromCapture "tags/*")
             >>> arr setDisqusId
