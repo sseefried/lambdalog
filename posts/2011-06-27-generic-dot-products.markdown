@@ -4,7 +4,7 @@ category: haskell
 tags: Haskell, type classes, dot product, matrix multiplication, program derivation
 ---
 
-This is the first in a series of posts about program derivation. In particular I
+This is the first in a series of posts about program derivation. In particular, I
 am attempting to derive a matrix multiplication algorithm that runs
 efficiently on parallel architectures such as GPUs.
 
@@ -262,7 +262,7 @@ looking at how to define <code>Applicative</code> instances for lists, vectors a
 The default <code>Applicative</code> instance for lists is unsuitable for a generic dot
 product. However, the <code>Applicative</code> instance on its wrapper type
 [<code>ZipList</code>](http://hackage.haskell.org/packages/archive/base/latest/doc/html/Control-Applicative.html#v:ZipList)
-is adequate but has an unsatisfying (to say the least) definition for <code>pure</code>.
+is adequate but has an unsatisfying definition for <code>pure</code> (to say the least).
 
 ~~~{.haskell}
 instance Applicative ZipList where
@@ -286,9 +286,15 @@ Obviously we want a similar definition for <code>pure</code> as for lists
 (<code>ZipList</code>). But we don't want to produce an infinite list, just one of the appropriate
 length.
 
-Definining the <code>Applicative</code> instance for vector leads us to an interesting observation
-(which holds true in general). You need *one instance for each constructor of a data type that has
-its shape encode in its type*. Also *the instance heads mirror the type of the construtors*.
+Definining the <code>Applicative</code> instance for vectors leads us to an interesting observation
+which holds true in general. For any data structure which encodes its own shape:
+
+1. You need one instance of <code>Applicative</code> for each constructor of the data type.
+2. The instance heads must mirror the types of the constructors.
+
+In the code below there are two instances and each instance head closely mirrors the data
+constructor's type. e.g. <code>Cons :: a -> Vec n a -> Vec (S n) a</code> mirrors <code>instance
+Applicative (Vec n) => Applicative (Vec (S n))</code>.
 
 ~~~{.haskell}
 instance Applicative (Vec Z) where
@@ -342,23 +348,18 @@ instance (Applicative (Tree m), Applicative (Tree n))
 
 # Arbitrary binary associative operators.
 
-Phew, that's it. We now have an implementation for <code>dot</code> that
-will work on an arbitrary data structure as long as one can define
-<code>Functor</code>, <code>Foldable</code> and
-<code>Applicative</code> instances.  We have also learned that it is a
-good idea to encode the data structures shape in its type so that
-<code>Applicative</code> instances can be defined as total functions
-in a pleasantly non-arbitrary way. (This will be important later on
-when we want to take the transpose of generic matrices, but I'm
-getting ahead of myself.)
+Phew, that's it. We now have an implementation for <code>dot</code> that will work on an arbitrary
+data structure as long as one can define <code>Functor</code>, <code>Foldable</code> and
+<code>Applicative</code> instances.  We have also learned that it is a good idea to encode the data
+structure's shape in its type so that <code>Applicative</code> instances can be defined. (This will
+be important later on when we want to take the transpose of generic matrices, but I'm getting ahead
+of myself.)
 
-But what if you want to use binary associative operators other than
-addition and multiplcation for the dot product? This is easy using
-Haskell's <code>Monoid</code> type class, and it plays nicely with the
-<code>Foldable</code> type class. In fact, it allows us to omit any
-mention of identity elements using the method <code>fold:: (Foldable
-t, Monoid m) => t m -> m</code>. We define an even more generic dot
-product as follows:
+But what if you want to use binary associative operators other than addition and multiplcation for
+the dot product? This is easy using Haskell's <code>Monoid</code> type class, and it plays nicely
+with the <code>Foldable</code> type class. In fact, it allows us to omit any mention of identity
+elements using the method <code>fold:: (Foldable t, Monoid m) => t m -> m</code>. We define an even
+more generic dot product as follows:
 
 ~~~{.haskell}
 dotGen :: (Foldable f, Applicative f, Monoid p, Monoid s)
@@ -370,9 +371,8 @@ dotGen (pinject, pproject) (sinject, sproject) x y =
     py = fmap pinject y
 ~~~
 
-This function takes two pairs of functions for injecting into and
-projecting from monoids. We can then define our original
-<code>dot</code> function using the existing <code>Sum</code> and
+This function takes two pairs of functions for injecting into and projecting from monoids. We can
+then define our original <code>dot</code> function using the existing <code>Sum</code> and
 <code>Product</code> wrapper types.
 
 ~~~{.haskell}
@@ -382,6 +382,6 @@ dot = dotGen (Product, getProduct) (Sum, getSum)
 
 # In the next episode...
 
-In my next post we will consider *generic matrix multiplication*. This operation
-is defined over arbitrary collections of collections of numbers and, naturally,
-makes use of our generic dot product. Until then, adios.
+In my next post we will consider *generic matrix multiplication*. This operation is defined over
+arbitrary collections of collections of numbers and, naturally, makes use of our generic dot
+product. Until then, adios.
