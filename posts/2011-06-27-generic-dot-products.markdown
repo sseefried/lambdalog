@@ -30,7 +30,7 @@ by attempting to *derive* the algorithm from a high level
 specification. His success has inspired me to follow a similar process
 to derive a work efficient matrix multiplication algorithm.
 
-The process I am following is roughly as follows
+The process I am following is roughly as follows:
 
 * generalise the concept of matrix multiplication to data structures other than
   lists or arrays.
@@ -48,7 +48,7 @@ The process I am following is roughly as follows
   be tree-like is an understatement.
 
 In this post I will present my results in developing an implementation for a
-*generic dot product*. The result is surprisingly succinct.
+*generic dot product*. The result is surprisingly elegant.
 
 # What is a dot product?
 
@@ -95,10 +95,9 @@ leaves contain numbers or whether branch nodes can too):
 data Tree a = Leaf a | Branch (Tree a) (Tree a)
 ~~~
 
-For succinctness' sake I will represent trees using nested pairs denoted with
-curly braces. e.g. <code>Branch (Leaf 1) (Leaf 2)</code> becomes
-<code>{1,2}</code>, <code>Branch (Leaf 1) (Branch (Leaf 2) (Leaf 3))</code>
-becomes <code>{1,{2,3}}</code>.
+For the sake of succinctness, I will represent trees using nested pairs denoted with curly
+braces. e.g. <code>Branch (Leaf 1) (Leaf 2)</code> becomes <code>{1,2}</code>, <code>Branch (Leaf 1)
+(Branch (Leaf 2) (Leaf 3))</code> becomes <code>{1,{2,3}}</code>.
 
 What should be the dot product of <code>{1,{2,3}}</code> and
 <code>{4,{5,6}}</code>? A reasonable answer would be <code>1 * 4 + 2 * 5 + 3 * 6 ==
@@ -144,9 +143,9 @@ First, we add some essentials to the top of our module.
 {-# LANGUAGE ScopedTypeVariables, FlexibleContexts, UndecidableInstances #-}
 ~~~
 
-Now we define two new data types, <code>Z</code> and <code>S</code>,
-representing Peano numbers. Both data types are empty since they will only be
-used as phantom types.
+Now we define two new data types, <code>Z</code> and <code>S</code>, representing [Peano
+numbers](http://en.wikipedia.org/wiki/Peano_axioms). Both data types are empty since they will only
+be used as phantom types.
 
 ~~~{.haskell}
 data Z
