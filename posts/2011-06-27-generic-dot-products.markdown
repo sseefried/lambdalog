@@ -19,24 +19,31 @@ The <code>scan</code> primitive (also known as *all-prefix-sums*) is quite
 famous because it is useful in a wide range of parallel algorithms and, at first
 glance, one could be forgiven for thinking it is not amenable to
 parallelisation. A well-known [work efficient](link me) algorithm for
-<code>scan</code> was developed by Guy Blelloch **FIXME: CHECK YOUR FACTS**
-which performs $O(n)$ work.
+<code>scan</code> was popularised by Guy Blelloch which performs $O(n)$ work.
 
-The algorithm is undeniably clever. Looking at it, it is not at all obvious how
-one might have gone about developing it oneself. A recent [series] [of] [posts]
-**LINK ME** by by [Conal Elliott](http://conal.net) set out to redress this
-situation by attempting to *derive* the algorithm from a high level
-specification. His success has inspired me to follow a similar process to derive
-an efficient matrix multiplication algorithm.
+The algorithm is undeniably clever. Looking at it, it is not at all
+obvious how one might have gone about developing it oneself. A
+[recent](http://conal.net/blog/posts/deriving-list-scans/)
+[series](http://conal.net/blog/posts/deriving-parallel-tree-scans/)
+[of](http://conal.net/blog/posts/composable-parallel-scanning/)
+[posts](http://conal.net/blog/posts/parallel-tree-scanning-by-composition/)
+by [Conal Elliott](http://conal.net) set out to redress this situation
+by attempting to *derive* the algorithm from a high level
+specification. His success has inspired me to follow a similar process
+to derive a work efficient matrix multiplication algorithm.
 
 The process I am following is roughly as follows
 
 * generalise the concept of matrix multiplication to data structures other than
   lists or arrays.
 
-* develop an generic implementation that relies, as far as possible, on reusable
-  algebraic machinery in type classes such as [Functor], [Applicative],
-  [Foldable] and [Traversable] **LINK**
+* develop an generic implementation that relies, as far as possible,
+  on reusable algebraic machinery in type classes such as
+  [Functor](http://hackage.haskell.org/packages/archive/base/latest/doc/html/Prelude.html#t:Functor),
+  [Applicative](http://hackage.haskell.org/packages/archive/base/latest/doc/html/Control-Applicative.html),
+  [Foldable](http://hackage.haskell.org/packages/archive/base/latest/doc/html/Data-Foldable.html)
+  and
+  [Traversable](http://hackage.haskell.org/packages/archive/base/latest/doc/html/Data-Traversable.html).
 
 * use this generic implementation as a *specification* to derive an efficient
   algorithm. To call it a hunch that the underlying data structure is going to
@@ -55,7 +62,7 @@ $a_1 b_1 + \dots + a_n b_n$
 
 or equivalently:
 
-$\sum{i=1}{n} a_i b_i$
+$\sum_{i=1}^{n}{a_i b_i}$
 
 The implementation for lists is fairly straightforward.
 
@@ -182,7 +189,9 @@ one below is impossible. (In fact, if your warnings are turned up high enough GH
 will warn that two patterns are missing in the definition above.)
 
 ~~~{.haskell}
-zipWithVec f (Cons x xs) Nil = {- something -}
+-- Although this pattern match is impossible GHC's type checker
+-- won't complain
+zipWithVec f (Cons x xs) Nil = {- something -} undefined
 ~~~
 
 ## Trees
@@ -202,7 +211,7 @@ For example:
 {1,{2,3}} :: Tree ((),((),())) Integer
 ~~~
 
-The definition of <code>zipWithT</code> only differs from the one before in
+The new definition of <code>zipWithT</code> only differs in
 its type.
 
 ~~~{.haskell}
@@ -245,7 +254,58 @@ an <code>Applicative</code> instance to make <code>dot</code> applicable.
 
 One might reasonably wonder, must the two arguments to <code>dot</code> have the
 same shape as before? It turns out that, yes, they do and for similar
-reasons. Try implementing the <code>Applicative</code> instance for trees.
+reasons. I'll demonstrate the point by looking at lists, vectors and trees.
+
+## Lists
+
+The default <code>Applicative</code> instance for lists is unsuitable for a generic dot
+product. However, the <code>Applicative</code> instance on its wrapper type
+[<code>ZipList</code>](http://hackage.haskell.org/packages/archive/base/latest/doc/html/Control-Applicative.html#v:ZipList)
+is adequate but has an unsatisfying (to say the least) definition for <code>pure</code>.
+
+~~~{.haskell}
+instance Applicative ZipList where
+  pure x = ZipList (repeat x)
+  ZipList fs <*> ZipList xs = ZipList (zipWith id fs xs)
+~~~
+
+Of course, this is necessary for lists since we can't guarantee that two lists of the same length
+will be applied together.  How else would you define <code>pure</code> to make it work on an
+arbitrary length lists <code>xs</code>?
+
+~~~{.haskell}
+(+) <$> (pure 1) <*> (ZipList xs)</code>
+~~~
+
+The definition of <code>pure</code> is much more satisfying for vectors.
+
+## Vectors
+
+Obviously we want a similar definition for <code>pure</code> as for lists
+(<code>ZipList</code>). But we don't want to produce an infinite list, just one of the appropriate
+length.
+
+Definining the <code>Applicative</code> instance for vector leads us to an interesting observation
+(which holds true in general). You need *one instance for each constructor of a data type that has
+its shape encode in its type*. Also *the instance heads mirror the type of the construtors*.
+
+~~~{.haskell}
+instance Applicative (Vec Z) where
+  pure _                            = Nil
+  Nil <*> Nil                       = Nil
+
+instance Applicative (Vec n) => Applicative (Vec (S n)) where
+  pure a                            = a `Cons` pure a
+  (fa `Cons` fas) <*> (a `Cons` as) = fa a `Cons` (fas <*> as)
+~~~
+
+That's it. Function <code>pure</code> will produce a vector of just the right length.
+
+
+## Trees
+
+Unlike the case for lists, it's hard to define an <code>Applicative</code> instance for
+non-shape-encoded trees. Let's have a look.
 
 ~~~{.haskell}
 instance Applicative Tree where
@@ -256,49 +316,71 @@ instance Applicative Tree where
   (Branch fa fb) <*> (Leaf a) = {- ? -} undefined
 ~~~
 
-This is very similar to the problem we had before. In fact, this problem is well
-known and has been pointed out **TYPECLASSOPEDIA AND OTHERS**
-
-# One more generalisation
-
-That's it. We now have an implementation for <code>dot</code> that will work on
-an arbitrary data structure as long as one can define <code>Functor</code>,
-<code>Foldable</code> and <code>Applicative</code> instances.  We have also
-learned that it is a good idea to encode the data structures shape in its type
-so that <code>Applicative</code> instances can be defined as total functions in
-a pleasantly non-arbitrary way. **Perhaps mention that one should be able to
-tell from the structure of the encoded shape which constructor to pattern match on**.
+This problem has been
+[noticed](http://www.haskell.org/pipermail/beginners/2010-March/003856.html) before on the
+<tt>Haskell-beginners</tt> mailing list. The
+[response](http://www.haskell.org/pipermail/beginners/2010-March/003857.html) is interesting because
+it mentions the "unpleasant property of returning infinite tree[s]"; the same problem we had with
+lists!
 
 
-However, there is one more generalisation I would like to make. Its utility will
-only become fully apparent in a later post. In mathematics both addition and
-multiplication are monoids with identity elements $0$ and $1$ respectively. We
-can generalise <code>dot</code> to make use of this fact by using the
-<code>Sum</code> and <code>Product</code> wrapper types. If type <code>a</code>
-satisfies <code>Num a</code> then both <code>Sum a</code> and <code>Product
-a</code> are instances of the <code>Monoid</code> class. Our final definition is:
+With shape-encode trees this is not a problem. Function <code>pure</code>
+produces a tree of the appropriate shape. Also, note how the head of the second instance mirrors the
+definition of the <code>Branch</code> constructor (:: Tree m a -> Tree n a -> Tree (m,n) a)
+
+~~~{.haskell}
+instance Applicative (Tree ()) where
+  pure a                          = Leaf a
+  Leaf fa <*> Leaf a              = Leaf (fa a)
+
+instance (Applicative (Tree m), Applicative (Tree n))
+         => Applicative (Tree (m,n)) where
+  pure a                          = Branch (pure a) (pure a)
+  (Branch fs ft) <*> (Branch s t) = Branch (fs <*> s) (ft <*> t)
+~~~
+
+# Arbitrary binary associative operators.
+
+Phew, that's it. We now have an implementation for <code>dot</code> that
+will work on an arbitrary data structure as long as one can define
+<code>Functor</code>, <code>Foldable</code> and
+<code>Applicative</code> instances.  We have also learned that it is a
+good idea to encode the data structures shape in its type so that
+<code>Applicative</code> instances can be defined as total functions
+in a pleasantly non-arbitrary way. (This will be important later on
+when we want to take the transpose of generic matrices, but I'm
+getting ahead of myself.)
+
+But what if you want to use binary associative operators other than
+addition and multiplcation for the dot product? This is easy using
+Haskell's <code>Monoid</code> type class, and it plays nicely with the
+<code>Foldable</code> type class. In fact, it allows us to omit any
+mention of identity elements using the method <code>fold:: (Foldable
+t, Monoid m) => t m -> m</code>. We define an even more generic dot
+product as follows:
+
+~~~{.haskell}
+dotGen :: (Foldable f, Applicative f, Monoid p, Monoid s)
+       => (a -> p, p -> a) -> (a -> s, s-> a) -> f a -> f a -> a
+dotGen (pinject, pproject) (sinject, sproject) x y =
+   sproject . fold . fmap (sinject . pproject) $ liftA2 mappend px py
+  where
+    px = fmap pinject x
+    py = fmap pinject y
+~~~
+
+This function takes two pairs of functions for injecting into and
+projecting from monoids. We can then define our original
+<code>dot</code> function using the existing <code>Sum</code> and
+<code>Product</code> wrapper types.
 
 ~~~{.haskell}
 dot :: (Num a, Foldable f, Applicative f) => f a -> f a -> a
-dot x y = (getSum . fold . fmap (Sum . getProduct))
-          (liftA2 mappend px py)
-  where
-    px = fmap Product x
-    py = fmap Product y
+dot = dotGen (Product, getProduct) (Sum, getSum)
 ~~~
-
-The <code>Sum</code>/<code>getSum</code> and
-<code>Product</code>/<code>getProduct</code> pairs are used to
-*inject*/*project* numbers into/out of the sum/product monoids.  This definition
-contains no mention of the identity elements for addition (i.e. <code>0</code>)
-because it uses the function <code>fold</code> which has signature <code>fold ::
-(Foldable t, Monoid m) => t m -> m</code>.
-
-
-
 
 # In the next episode...
 
 In my next post we will consider *generic matrix multiplication*. This operation
 is defined over arbitrary collections of collections of numbers and, naturally,
-makes use of our generic dot product. Until then, goodbye.
+makes use of our generic dot product. Until then, adios.
