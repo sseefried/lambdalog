@@ -16,15 +16,11 @@ lambdalogPageCompiler = pageCompilerWithPandoc defaultHakyllParserState opts id
     opts = defaultHakyllWriterOptions {
       writerHTMLMathMethod = MathJax "http://cdn.mathjax.org/mathjax/latest/MathJax.js" }
 
-main :: IO ()
-main = hakyll $ do
-    -- Compress CSS
-    match "css/*" $ do
-        route   idRoute
-        compile compressCssCompiler
 
+renderPosts :: Pattern a -> RulesM (Pattern (Page String))
+renderPosts glob = do 
     -- Render posts
-    match "posts/*" $ do
+    match glob $ do
         route   $ setExtension ".html"
         compile $ lambdalogPageCompiler
             >>> arr (renderDateFields ("%e", "%b", "%Y") ("1", "Jan", "2001"))
@@ -34,15 +30,30 @@ main = hakyll $ do
             >>> applyTemplateCompiler "templates/post.html"
             >>> applyTemplateCompiler "templates/default.html"
             >>> relativizeUrlsCompiler
-
-    -- Render posts list
-    match "posts.html" $ route idRoute
-    create "posts.html" $ constA mempty
-        >>> arr (setField "title" "All posts")
-        >>> requireAllA "posts/*" addPostList
+            
+renderPostsList :: Pattern (Page String) -> String -> String -> RulesM (Identifier (Page String))
+renderPostsList glob pageName title = do
+    match (parseGlob pageName) $ route idRoute
+    create (parseIdentifier pageName) $ constA mempty
+        >>> arr (setField "title" title)
+        >>> requireAllA glob addPostList
         >>> applyTemplateCompiler "templates/posts.html"
         >>> applyTemplateCompiler "templates/default.html"
         >>> relativizeUrlsCompiler
+
+main :: IO ()
+main = hakyll $ do
+    -- Compress CSS
+    match "css/*" $ do
+        route   idRoute
+        compile compressCssCompiler
+
+    renderPosts "posts/*" 
+    renderPosts "drafts/*"
+
+    -- Render posts list
+    renderPostsList "posts/*" "posts.html" "All posts"
+    renderPostsList "drafts/*" "drafts.html" "All drafts"
 
     -- Index
     match "index.html" $ route idRoute
