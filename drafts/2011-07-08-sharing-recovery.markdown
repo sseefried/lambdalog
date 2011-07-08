@@ -38,6 +38,8 @@ LetE (Add (Const 2) (Const 3)) (Add (Lvar 0) (Lvar 0))
 
 We're using [de Bruijn indices]() to refer to variables. Here we have introduced a *let-node* which binds let-variable $0$ to the expression $2 + 3$ in the expression ${0} + {0}$ (using the notation that ${x}$ refers to let-variable (<code>Lvar</code>)with de Bruijn index $x$).
 
+## Memory usage is the real problem
+
 You might be thinking, what's the big deal? Who cares if a term gets replicated a few times. Can't we always recover the sharing using *common sub-expression elimination* ([CSE]())? This is true (if inefficient) but consider the case where one wants to generate the (unrolled) code that finds the $n$th Fibonacci number.
 
 ~~~{.haskell}
@@ -70,5 +72,4 @@ Let (Const 1)
 
 or equivalently $let v0 = 1 in let v1 = v0 + v0 in v0 + (v1 + v0)$
 
-
-
+## What it looks like in the heap
