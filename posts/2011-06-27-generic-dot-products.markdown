@@ -15,8 +15,8 @@ and <code>scan</code> (and many more).
 
 The <code>scan</code> primitive (also known as *all-prefix-sums*) is quite famous because it is
 useful in a wide range of parallel algorithms and, at first glance, one could be forgiven for
-thinking it is not amenable to parallelisation. However, one does exist; a well-known [work
-efficient](link me) algorithm for <code>scan</code> was popularised by Guy Blelloch which performs
+thinking it is not amenable to parallelisation. However, a well-known [work
+efficient](http://www.cs.cmu.edu/~scandal/html-papers/short/short.html) algorithm for <code>scan</code> was popularised by Guy Blelloch which performs
 $O(n)$ work.
 
 The algorithm is undeniably clever. Looking at it, it is not at all
@@ -53,12 +53,12 @@ of an efficient algorithm in a later post.
 
 # Background
 
-In order to understand this post I highly recommend that your read [Conor
-McBride's](http://strictlypositive.org/) and [Ross Paterson's](http://www.soi.city.ac.uk/~ross/)
-paper: [Applicative programming with
-effects](http://www.soi.city.ac.uk/~ross/papers/Applicative.pdf).
-
-A basic grasp of linear algebra would also be helpful.
+In order to understand this post I highly recommend that you read
+[Conor McBride](http://strictlypositive.org/) and [Ross
+Paterson](http://www.soi.city.ac.uk/~ross/)'s paper: [Applicative
+programming with
+effects](http://www.soi.city.ac.uk/~ross/papers/Applicative.pdf). A
+basic grasp of linear algebra would also be helpful.
 
 # What is a dot product?
 
