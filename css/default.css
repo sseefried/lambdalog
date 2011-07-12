@@ -53,7 +53,7 @@ blockquote {
 
 h1, h2, h3, h4, h5, h6 {
   font-family: Helvetic, sans-serif;
-  font-size: 1em;
+/*  font-size: 1em; */
 }
 
 h1, h1 a, h1 a:visited, h1 a:active {
@@ -81,8 +81,6 @@ h1.blog-title, h1.blog-title a, h1.blog-title a:visited, h1.blog-title a:active 
   margin-bottom: .5em;
 }
 
-
-
 h2 {
   color: #222;
   font-size: 1.2em;
@@ -94,16 +92,12 @@ h3, h3 a, h3 a:visited, h3 a:active {
   font-size: 1em;
 }
 
-
-
-
 /* Content container */
 #content {
   margin: 1.5em auto 0;
   text-align: left;
-  width: 800px;
+  width: 900px;
 }
-
 
 /* Metadata */
 #meta {
@@ -117,14 +111,11 @@ h3, h3 a, h3 a:visited, h3 a:active {
   display: inline;
 }
 
-
 /* Search */
 #search { margin: 0 0 0.75em; text-align: right; }
 
-
 /* Search Result Count */
 #searchresultcount { margin: 1.5em 0; text-align: center; }
-
 
 /* Individual Posts */
 .post {
@@ -162,7 +153,7 @@ h3, h3 a, h3 a:visited, h3 a:active {
 
 .post .regular, .post .quote, .post .link, .post .conversation,
 .post .photo, .post .video, .post .audio {
-  margin-left: 7em;
+  margin-left: 6em;
   padding: 0;
 }
 
@@ -299,10 +290,12 @@ pre code {
   padding: 5px;
   background: #EEE;
 }
+
 td.sourceCode { padding-left: 5px; background: #EEE; }
 pre.sourceCode, .code {
-  font-size: 15px;
-  line-height: 17px;
+  width: 800px; /* Just wider than the margin of the post */
+  font-size: 14px;
+  line-height: 16px;
   padding: 5px;
   background: #EEE }
 pre.sourceCode         { overflow: auto; overflow-y: hidden;}
