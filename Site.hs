@@ -18,7 +18,7 @@ lambdalogPageCompiler = pageCompilerWithPandoc defaultHakyllParserState opts id
 
 
 renderPosts :: Pattern a -> RulesM (Pattern (Page String))
-renderPosts glob = do 
+renderPosts glob = do
     -- Render posts
     match glob $ do
         route   $ setExtension ".html"
@@ -30,7 +30,7 @@ renderPosts glob = do
             >>> applyTemplateCompiler "templates/post.html"
             >>> applyTemplateCompiler "templates/default.html"
             >>> relativizeUrlsCompiler
-            
+
 renderPostsList :: Pattern (Page String) -> String -> String -> RulesM (Identifier (Page String))
 renderPostsList glob pageName title = do
     match (parseGlob pageName) $ route idRoute
@@ -48,7 +48,7 @@ main = hakyll $ do
         route   idRoute
         compile compressCssCompiler
 
-    renderPosts "posts/*" 
+    renderPosts "posts/*"
     renderPosts "drafts/*"
 
     -- Render posts list
@@ -84,6 +84,12 @@ main = hakyll $ do
 
     -- Read templates
     match "templates/*" $ compile templateCompiler
+
+    -- Compile images
+    match "static/images/*" $ do
+      route idRoute
+      compile copyFileCompiler
+
   where
     renderTagCloud' :: Compiler (Tags String) String
     renderTagCloud' = renderTagCloud tagIdentifier 100 120
