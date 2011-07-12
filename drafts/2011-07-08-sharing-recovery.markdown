@@ -63,10 +63,10 @@ This is true (if inefficient) but consider the case where one wants to generate 
 code that finds the $n$th Fibonacci number.
 
 ~~~{.haskell}
-fib :: Int -> HOAS.Exp Int
+fib :: Int -> HOAS.Exp Integer
 fib x = fib' x 1 1
   where
-   fib' :: Int -> HOAS.Exp Int -> HOAS.Exp Int -> HOAS.Exp Int
+   fib' :: Int -> HOAS.Exp Integer -> HOAS.Exp Integer -> HOAS.Exp Integer
    fib' x e1 e2
     | x == 0    = e1
     | otherwise = fib' (x - 1) e2 (e1 + e2)
@@ -101,6 +101,11 @@ Let (Const 1)
 ~~~
 
 or equivalently `let v0 = 1 in let v1 = v0 + v0 in v0 + (v1 + v0)`
+
+## What makes our sharing recovery different?
+
+* Shallow embedding of type system in AST nodes.
+* Using a Higher Order Abstract Syntax representation. How do you recover sharing "under the lambdas"?
 
 ## What it looks like in the heap
 
@@ -163,6 +168,76 @@ data PreExp exp fun t where
 newtype Exp a = Exp (PreExp Exp Fun a)
 ~~~
 
-We have used convention of prefixing the name of the type with `Pre` to highlight that it is pre-recursive. The newtype `Exp` "ties the knot" ensure that all sub-expressions and sub-functions are of type `Exp` and `Fun` respectively. (You can tell that this type ties the not because `Exp` appears on the left and right hand side of the equals sign.)
+We have used convention of prefixing the name of the type with `Pre` to highlight that it is pre-recursive. The newtype `Exp` "ties the knot" ensure that all sub-expressions and sub-functions are of type `Exp` and `Fun` respectively. (You can tell that this type ties the knot because `Exp` appears on the left and right hand side of the equals sign.)
 
-The `Tag` constructor is not part of the language. As the comment states, it is only used during de Bruijn conversion and sharing recovery. 
+## What `fib 4` looks like in the heap
+
+**FIXME: Use dot plugin**
+
+This is what it looks like in the heap.
+
+![AST of `fib 4` in the heap](/static/images/fib_4_heap.jpg)
+
+I've used some syntactic conventions here:
+
+* Rectangular nodes are of type `Exp a`
+* Elliptical nodes are of type `PreExp Exp Fun a`
+
+This graph was automatically generated. How did we discover the sharing in the heap? It turns out that GHC has provided run-time support for this via a mechanism called *stable names*. Stable names are abstract names for an object in the heap that support fast, not quite exact, comparison ($O(1)$) and hashing. In other language one can use pointer or reference equality to quickly compare two objects, which allows fast hash table implementations. One cannot compare object addresses in Haskell since the garbage collector can move objects around.
+
+Two stable names that are equal are guaranteed to refer to the same object. The converse is not true; if two stable names are not equal then the objects they name may still be equal. Thus, observing sharing in the heap is not perfect and consequently our sharing recovery implementation may not recover all sharing.  However, it works well in practice.
+
+# Sharing recovery
+
+To recover sharing we need to introduce two new node types *let-nodes* and *let-variable-nodes*. The basic idea of sharing recovery is to find nodes that are shared in the heap, bind them to *let-variables*, and replace the shared nodes with *let-variable-nodes*. 
+
+Our earlier definition of the pre-recursive type `PreExp` allows us to do this.
+
+~~~{.haskell}
+data SharingExp a where
+  VarSharing :: Elt a => StableName (Exp a)                           -> SharingExp a
+  LetSharing ::          StableSharingExp -> SharingExp a             -> SharingExp a
+  ExpSharing :: Elt a => StableName (Exp a) -> PreExp SharingExp SharingFun a -> SharingExp a
+
+data SharingFun a where
+  TaggedSharingExp :: Elt b => Int {-unique -} -> SharingExp b -> SharingFun (a -> b)
+~~~
+
+Don't worry too much about the definition `SharingFun` for now; it will come in useful when we try to recover sharing in HOAS terms (i.e. "under the lambdas").
+
+## What are we aiming for? 
+
+Once all the `LetSharing` and `VarSharing` nodes have been inserted we want the graph to look as follows.
+The numbers in nodes have the following meaning. Let-nodes have *binders* and *bodies*. A binder is identified by a number. In a let-node, `LetSharing n`, one identifies the binder by that number. We call it *binder $n$*. A let-variable-node, `VarSharing n` refers to binder $n$.
+
+![`fib 4` with sharing recovered](/static/images/fib_4_recovered.jpg)
+
+This time around:
+
+* Rectangular boxes are nodes of type `LetSharing a`.
+* Ellipses are, as they did before,  `PreExp` nodes but this time of their full type is
+  `PreExp SharingExp SharingFun a`.
+
+## A two phase approach
+
+Sharing recovery is done in two phases. In phase one we simultaneously create an occurrence map while creating an annotated tree *without sharing recovered*.
+
+An occurrence map is a mapping from stable names of `PreExp` nodes to the number of times that node is shared in the heap. We call the number of times a node has been shared in the heap its *occurrence count*. Identically we say that this is the occurrence count of the stable name.
+
+Phase one traverses the tree in a *depth first* manner (it is a top-down traversal)
+
+* If we encounter a `PreExp` node we have *not* seen before we wrap it in a `ExpSharing` node along with 
+  the stable name of the original `Exp` node it was under.
+* If we encounter a `PreExp` node we have seen before we replace it with a `VarSharing` node and
+  increment the count in the occurrence map.
+
+For our running example this produces a tree like:
+
+**show the tree after phase one**
+
+Phase 2 of the algorithm is a bottom-up traversal of the tree. The occurrence map from phase 1 is an input into phase 2. As we move up the tree we keep track of how many times we have seen the stable names stored in `ExpSharing` nodes. When we have seen it as many times as its count in the occurrence map we insert a `LetSharing` node whose body is a new `VarSharing` node and whose binder is the expression so far.
+
+Except this is a lie. It's a little more complicated than that.
+
+It turns out that you may have seen a stable name as many times as its occurrence count but still not be able to (correctly) insert a let-node. This is because the binder of that let-node may contain `VarSharing` nodes for which there are no let-nodes yet inserted. You actually need to maintain dependencies between binders and the let-nodes they depend on.
+
