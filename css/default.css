@@ -316,4 +316,7 @@ pre.sourceCode span.er { color: red; font-weight: bold; }
 /* Disqus */
 #dsq-content h3 { font-size: 14pt; font-weight: bold;}
 
-/* Custom CSS */
+.figure {
+  padding: 5px;
+  border: 1px solid #CCC;   
+}

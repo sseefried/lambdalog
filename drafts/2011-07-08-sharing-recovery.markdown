@@ -220,24 +220,109 @@ This time around:
 
 ## A two phase approach
 
-Sharing recovery is done in two phases. In phase one we simultaneously create an occurrence map while creating an annotated tree *without sharing recovered*.
+Sharing recovery is done in two phases. As a very high level overview:
+
+* Phase 1 counts, through a top-down traversal, how many times each node is shared in the AST.
+* Phase 2 insert let-nodes through a bottom-traversal.
+
+Of course it's a little more detailed than that. In phase one we simultaneously create an occurrence map while creating an annotated tree *without sharing recovered*.
 
 An occurrence map is a mapping from stable names of `PreExp` nodes to the number of times that node is shared in the heap. We call the number of times a node has been shared in the heap its *occurrence count*. Identically we say that this is the occurrence count of the stable name.
 
-Phase one traverses the tree in a *depth first* manner (it is a top-down traversal)
+### Phase 1
+Phase one traverses the tree in a *depth first* manner; it is a top-down traversal.
 
-* If we encounter a `PreExp` node we have *not* seen before we wrap it in a `ExpSharing` node along with 
-  the stable name of the original `Exp` node it was under.
-* If we encounter a `PreExp` node we have seen before we replace it with a `VarSharing` node and
+* If we encounter an `Exp` node we have *not* seen before we wrap up the `PreExp` node contained 
+  within it with a `ExpSharing` node along with the stable name of the original `Exp` node it was under.
+* If we encounter an `Exp` node we have seen before we replace it with a `VarSharing` node and
   increment the count in the occurrence map.
 
-For our running example this produces a tree like:
+Expression `fib 4` produces a tree like this:
 
-**show the tree after phase one**
+**In the final version of this blog post try produce the graphs all at once so that the stable names are all the same**
+
+![`fib 4` after phase 1](/static/images/fib_4_after_phase_1.jpg)
+
+In this figure we show the stable name of the `Exp` node that each `ExpSharing` replaced. (This information is stored in each `ExpSharing` node; see the definition above. **LINK ME**.) The numbers after the `VarSharing` nodes refer to these stable names. The idea behind them is that they stand in place of the `ExpSharing` node containing the particular stable name of an `Exp` node.
+
+### Phase 2
 
 Phase 2 of the algorithm is a bottom-up traversal of the tree. The occurrence map from phase 1 is an input into phase 2. As we move up the tree we keep track of how many times we have seen the stable names stored in `ExpSharing` nodes. When we have seen it as many times as its count in the occurrence map we insert a `LetSharing` node whose body is a new `VarSharing` node and whose binder is the expression so far.
 
-Except this is a lie. It's a little more complicated than that.
+**THERE IS AN OPPORTUNITY HERE FOR SOME FAIRLY FORMAL DEFINITIONS**
 
-It turns out that you may have seen a stable name as many times as its occurrence count but still not be able to (correctly) insert a let-node. This is because the binder of that let-node may contain `VarSharing` nodes for which there are no let-nodes yet inserted. You actually need to maintain dependencies between binders and the let-nodes they depend on.
+For instance, in figure **LINK** the `ExpSharing` nodes with `Exp` stable names $26$ **FIXME** and $25$ **FIXME** will become the binders of let-nodes. Let's use the abbreviation that $ES_n$ (for some n) refers to `ExpSharing` node with `Exp` stable name $n$ and $VS_n$ for the `VarSharing` node standing in place of $ES_n$.  Now consider the left branch of the tree and travel up from the leaves, stopping at each `ExpSharing` or `VarSharing` node. At $ES_{26}$ and $VS_{26}$ we have seen stable name $26$ once. Continue travelling upwards to $ES_{25}$. Here we have seen stable name $26$ twice. But it's occurrence count in the entire AST is 3 so this is still not enough. Only when we reach $ES_{24}$ have we seen it 3 times. This is the point to insert the `LetSharing` node (i.e. the let-node) with binder equal to the subtree rooted at $ES_{26}$. Incidentally this is also the place to insert another `LetSharing` node whose binder is the subtree rooted at $ES_{25}$. Note that this binder depends on the binder of $LS_{25}$ so getting the order right is important.
+
+In fact, the description given so far is not the full story. It's a little more complicated than that.
+You cannot necessarily insert a let-node when you have seen a stable name as many times as its occurrence count. This is because the binder of that let-node may contain `VarSharing` nodes for which there are no let-nodes yet inserted. You actually need to maintain dependencies between binders and the let-nodes they depend on.
+
+**YOU HAVE NOT YET MENTIONED THE REPLACEMENT OF EXPSHARING WITH VARSHARING NODES**
+
+**TODO**
+
+- discuss dependencies between binders
+- introduce the NodeCounts data structure
+- discuss topological sort to determine order of let sharing nodes.
+
+
+## Looking under the lambdas
+
+Our representation of the simply typed lambda calculus with arithmetic uses Higher Order Abstract Syntax. How then do we recover sharing when it, so to speak, "under a lambda"? But first, why is this even important?
+
+**Put some explanation in why**
+
+Here's a program with some sharing under a lambda:
+
+~~~{.haskell}
+powTwo :: Int -> HOAS.Exp Integer
+powTwo n = HOAS.app (aux n) 1
+  where
+    aux :: Int -> HOAS.Fun (Integer -> Integer)
+    aux n
+      | n == 0 = HOAS.lam (\v -> v)
+      | otherwise =  HOAS.lam $ \v -> let v' = HOAS.app (aux (n-1)) v in v' + v'
+~~~
+
+This, rather contrived, function finds a power of two by building up a function progressively.
+
+$powTwo\ 0 \equiv (\lambda v.v)\ 1$
+
+$powTwo\ 1 \equiv (\lambda a.let\ b = (\lambda c.c)\ b\ in\ b + b)\ 1$ 
+
+The AST itself is not that big. Its size is proportional to $n$ due to the fact that is just building up a closure on the run-time heap. However, without sharing recovery it will run in exponential time. Also, if it is converted to another intermediate form, say one using de Bruijn indices, its size will explode as per usual. 
+
+As a crude measure of this let's see what happens when we convert to de Bruijn form and then find the length of the `show`ed result.
+
+~~~
+> map (\n -> length (show (convert $ powTwo n))) [1..10]
+[81,189,405,837,1701,3429,6885,13797,27621,55269]
+~~~
+
+It is clear that sharing recovery needs to be able to look under lambdas. The solution is not too difficult in principle but has some subtleties. The basic idea is to apply the Haskell function under the `Lam` node to a dummy tag, thus creating a value of `PreExp Exp Fun a`, during Phase 1.
+
+Remember I said I'd explain what the `SharingFun` type was all about. This is where it comes into its own. We generated a unique integer $i$, apply the higher order function to `Tag i` thus yielding a value of type `PreExp Exp Fun a` (for some `a`). We then recursively traverse into that yielding a value of 
+type `PreExp SharingExp SharingFun a` and finally wrapped that in the `TaggedSharingExp` constructor, yielding a value of type `SharingFun a`. 
+
+The unique value, $i$, essentially acts as a variable name. We have converted from HOAS to an explicit, named, representation of lambda terms. Once sharing recovery has been done this can easily be converted back into a HOAS representation if desired. We personally are not interested in that. We are only interested in converting to de Bruijn notation, which is also straightforward. Here's how:
+
+* Initialise a finite map from unique identifiers to de Bruijn indices. Call this the *tag map*
+* Traverse the `SharingExp a` data structure.
+* Keep track of how many lambdas one is under (i.e. how many `TaggedSharingExp`s one is under)
+* When one pattern matches on a `TaggedSharingExp` add to the tag map a mapping from the
+  unique identifier to the current lambda depth.
+* When one pattern matches on `Tag j`, look up the mapping of $j$ in the finite map and replace it
+  with the corresponding de Bruijn index.
+  
+# Other things to talk about
+
+* The need for the nodes to be in weak head normal form (WHNF) before taking their stable names. 
+  Use `seq`
+* unsafePerformIO and why it's safe during sharing recovery.
+* the loss of true referential transparency. The need to be careful not to do any evaluation between
+  phase 1 and phase 2.
+* An explanation of the graph of dependencies between binders and the topological sort. Do it
+  diagrammatically. Choose good examples.
+* Explain the node counts data structure.
+
+# Proof of correctness (in Agda?)
 
