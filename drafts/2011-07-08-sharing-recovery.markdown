@@ -201,6 +201,11 @@ data SharingExp a where
 
 data SharingFun a where
   TaggedSharingExp :: Elt b => Int {-unique -} -> SharingExp b -> SharingFun (a -> b)
+
+-- Stable name for an array computation associated with its sharing-annotated version.
+--
+data StableSharingExp where
+  StableSharingExp :: Elt a => StableName (Exp a) -> SharingExp a -> StableSharingExp
 ~~~
 
 Don't worry too much about the definition `SharingFun` for now; it will come in useful when we try to recover sharing in HOAS terms (i.e. "under the lambdas").
@@ -208,11 +213,11 @@ Don't worry too much about the definition `SharingFun` for now; it will come in 
 ## What are we aiming for? 
 
 Once all the `LetSharing` and `VarSharing` nodes have been inserted we want the graph to look as follows.
-The numbers in nodes have the following meaning. Let-nodes have *binders* and *bodies*. A binder is identified by a number. In a let-node, `LetSharing n`, one identifies the binder by that number. We call it *binder $n$*. A let-variable-node, `VarSharing n` refers to binder $n$.
+The numbers in nodes have the following meaning. Let-nodes have *bound expressions* and *bodies*. A bound expression is identified by a number called its *binder*. (It is just equal to the stable name of the original `Exp` node.) The binder of let-node, `LetSharing (StableSharingExp sn sharingExp) bound` is equal to `sn`. A let-variable-node, `VarSharing sn` references bound expression `sharingExp`.
 
 ![`fib 4` with sharing recovered](/static/images/fib_4_recovered.jpg)
 
-This time around:
+The notation this time around is:
 
 * Rectangular boxes are nodes of type `LetSharing a`.
 * Ellipses are, as they did before,  `PreExp` nodes but this time of their full type is
@@ -247,27 +252,87 @@ In this figure we show the stable name of the `Exp` node that each `ExpSharing` 
 
 ### Phase 2
 
-Phase 2 of the algorithm is a bottom-up traversal of the tree. The occurrence map from phase 1 is an input into phase 2. As we move up the tree we keep track of how many times we have seen the stable names stored in `ExpSharing` nodes. When we have seen it as many times as its count in the occurrence map we insert a `LetSharing` node whose body is a new `VarSharing` node and whose binder is the expression so far.
+Phase 2 of the algorithm is a bottom-up traversal of the tree. The occurrence map from phase 1 is an input into phase 2. As we move up the tree we keep track of how many times we have seen the stable names stored in `ExpSharing` nodes. When we have seen it as many times as its count in the occurrence map we insert a `LetSharing` node whose body is a new `VarSharing` node and whose bound expression is the expression so far.
 
 **THERE IS AN OPPORTUNITY HERE FOR SOME FAIRLY FORMAL DEFINITIONS**
 
-For instance, in figure **LINK** the `ExpSharing` nodes with `Exp` stable names $26$ **FIXME** and $25$ **FIXME** will become the binders of let-nodes. Let's use the abbreviation that $ES_n$ (for some n) refers to `ExpSharing` node with `Exp` stable name $n$ and $VS_n$ for the `VarSharing` node standing in place of $ES_n$.  Now consider the left branch of the tree and travel up from the leaves, stopping at each `ExpSharing` or `VarSharing` node. At $ES_{26}$ and $VS_{26}$ we have seen stable name $26$ once. Continue travelling upwards to $ES_{25}$. Here we have seen stable name $26$ twice. But it's occurrence count in the entire AST is 3 so this is still not enough. Only when we reach $ES_{24}$ have we seen it 3 times. This is the point to insert the `LetSharing` node (i.e. the let-node) with binder equal to the subtree rooted at $ES_{26}$. Incidentally this is also the place to insert another `LetSharing` node whose binder is the subtree rooted at $ES_{25}$. Note that this binder depends on the binder of $LS_{25}$ so getting the order right is important.
+For instance, in figure **LINK** the `ExpSharing` nodes with `Exp` stable names $26$ **FIXME** and $25$ **FIXME** will become the bound expressions of let-nodes. Let's use the abbreviation that $ES_n$ (for some n) refers to `ExpSharing` node with `Exp` stable name $n$ and $VS_n$ for the `VarSharing` node standing in place of $ES_n$.  Now consider the left branch of the tree and travel up from the leaves, stopping at each `ExpSharing` or `VarSharing` node. At $ES_{26}$ and $VS_{26}$ we have seen stable name $26$ once. Continue travelling upwards to $ES_{25}$. Here we have seen stable name $26$ twice. But it's occurrence count in the entire AST is 3 so this is still not enough. Only when we reach $ES_{24}$ have we seen it 3 times. This is the point to insert the `LetSharing` node (i.e. the let-node) with bound expression equal to the subtree rooted at $ES_{26}$. Incidentally this is also the place to insert another `LetSharing` node whose bound expression is the subtree rooted at $ES_{25}$. Note that this bound expression depends on the bound expression of $LS_{25}$ so getting the order right is important.
 
 In fact, the description given so far is not the full story. It's a little more complicated than that.
-You cannot necessarily insert a let-node when you have seen a stable name as many times as its occurrence count. This is because the binder of that let-node may contain `VarSharing` nodes for which there are no let-nodes yet inserted. You actually need to maintain dependencies between binders and the let-nodes they depend on.
+You cannot necessarily insert a let-node when you have seen a stable name as many times as its occurrence count. This is because the bound expression of that let-node may contain `VarSharing` nodes for which there are no let-nodes yet inserted. You actually need to maintain dependencies between bound expressions and the let-nodes they depend on.
 
 **YOU HAVE NOT YET MENTIONED THE REPLACEMENT OF EXPSHARING WITH VARSHARING NODES**
 
 **TODO**
 
-- discuss dependencies between binders
-- introduce the NodeCounts data structure
-- discuss topological sort to determine order of let sharing nodes.
+## The algorithm in more detail
+
+The AST after Phase 1 of the algorithm is an intermediate, ill-formed state. The job of Phase 2 is to replace shared subtrees with let-variable-nodes and move them to become the bound expressions of newly inserted let-nodes.  Subtrees are merely shuffled around; they are neither replicated nor removed.  When we replace a shared subtree with a let-variable-node we need to keep that subtree somewhere until it is ready to be inserted as the bound expression of a let-node.  We introduce a new data structure, called `SharedNodes`, to achieve this aim.
+
+The `SharedNodes` data structure is responsible for:
+
+* storing shared subtrees that have been replaced with let-variable-nodes.
+* maintaining a count of how many times a particular stable name has been seen.
+* maintaining dependencies between shared subtrees.
+
+We say a let-variable-node *references* a shared subtree (that will eventually become the bound expression of a let-node).
+
+**FIXME: NEED TO PUT THIS DEFINITION SOMEWHERE EARLIER PERHAPS?**
+
+The *stable expression name* is the stable name of the original `Exp` node that a `ExpSharing` or `VarSharing` node replaced during Phase 1 of the sharing recovery algorithm. Throughout my exposition `ExpSharing` and `VarSharing` will be identified by these stable expression names. i.e. I will use phrases like "the stable expression name of node $x$". I will also speak of stable expression names of trees (and subtrees). This is intended to mean the stable expression name of the root node of the tree.
+
+A dependency between two shared subtrees, $T_{1}$ and $T_{2}$, exists when $T_{1}$ contains a let-variable-node that references $T_{2}$.
+
+### Dependency groups and the `SharedNodes` data structure.
+
+Dependencies between subtrees induce the notion of *dependency groups*. A dependency group is represented as a graph; the nodes are the stable expression names of the trees and the edges the dependencies between them.
+
+We use an [adjacency list][adjacency-list] representation for the graph. This requires the use of [`HashMap`][hashmap] and [`HashSet`][hashset] data structures from the [`unordered-containers`](http://hackage.haskell.org/package/unordered-containers) package because stable names can only be compared for equality (and hence have no `Ord` instance).
+
+~~~{.haskell}
+data DepGroup = DepGroup { sharedNodeMap :: HashMap StableExpName (StableSharingExp, Int)
+                         , edges       :: HashMap StableExpName (HashSet StableExpName) }
+~~~
+
+The nodes of the graph are simply the keys of the `sharedNodeMap`: stable names. 
+The values are pairs of the shared subtrees and currently observed count.
+
+The `SharedNodes` data structure is simply a list of dependency groups.
+
+~~~{.haskell}
+newtype SharedNodes = SharedNodes [DepGroup] deriving Show
+~~~
+
+We maintain the invariant that all dependency groups are *independent*; they don't overlap. More formally, if $G_1$ and $G_2$ are dependency groups then $nodes(G_1) \cap nodes(G_2) = \varnothing$.  Dependency groups can also be merged.
+
+~~~{.haskell}
+mergeDepGroup :: DepGroup -> DepGroup -> DepGroup
+mergeDepGroup dg1 dg2 = DepGroup newSharedNodeMap newEdges
+  where
+    newSharedNodeMap = Map.foldlWithKey' (\m k v -> Map.insertWith updateCount k v m)
+                                 (sharedNodeMap dg1) (sharedNodeMap dg2)
+    updateCount (sa1, count1) (sa2, count2) = (sa1 `pickNoneVar` sa2, count1 + count2)
+    newEdges = Map.foldlWithKey' (\m k v -> Map.insertWith Set.union k v m)
+                                 (edges dg1) (edges dg2)
+
+pickNoneVar :: StableSharingExp -> StableSharingExp -> StableSharingExp
+(StableSharingExp _ (VarSharing _)) `pickNoneVar` sa2                                 = sa2
+sa1                                 `pickNoneVar` _sa2                                = sa1
+~~~
+
+The new shared node map is generated by inserting all the values from the second map into the first.
+If two values have the same key (i.e. stable name) we then merge the values. This is done via `updateCount` which sums their counts and picks the `StableSharingExp` containing a non-`VarSharing` node (if any). A non-`VarSharing` node will be picked by the time a shared node's count is equal to its occurrence count. (See proof of correctness later.)
+
+The edges of the new dependency group by inserting all the adjacency lists from the second dependency group into the first. If two values have the same key (i.e. stable name) then the new adjacency list is taken to be union of the two existing adjacency lists for that key in their respective dependency groups.
+
+## Let's see an example
+
+
 
 
 ## Looking under the lambdas
 
-Our representation of the simply typed lambda calculus with arithmetic uses Higher Order Abstract Syntax. How then do we recover sharing when it, so to speak, "under a lambda"? But first, why is this even important?
+Our representation of the simply typed lambda calculus with arithmetic uses Higher Order Abstract Syntax. How then do we recover sharing when it is, so to speak, "under a lambda"? But first, why is this even important?
 
 **Put some explanation in why**
 
@@ -320,9 +385,14 @@ The unique value, $i$, essentially acts as a variable name. We have converted fr
 * unsafePerformIO and why it's safe during sharing recovery.
 * the loss of true referential transparency. The need to be careful not to do any evaluation between
   phase 1 and phase 2.
-* An explanation of the graph of dependencies between binders and the topological sort. Do it
+* An explanation of the graph of dependencies between bound expressions and the topological sort. Do it
   diagrammatically. Choose good examples.
 * Explain the node counts data structure.
 
 # Proof of correctness (in Agda?)
+                      
 
+
+[adjacency-list]: http://en.wikipedia.org/wiki/Adjacency_list
+[hashmap]: http://hackage.haskell.org/packages/archive/unordered-containers/0.1.4.0/doc/html/Data-HashMap-Lazy.html
+[hashset]: http://hackage.haskell.org/packages/archive/unordered-containers/0.1.4.0/doc/html/Data-HashSet.html
