@@ -10,11 +10,8 @@
               type="application/rss+xml"
               title="Lambdalog"
               href="/rss.xml" />
-         <script type="text/x-mathjax-config">
-            MathJax.Hub.Config({tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]}});
-         </script>
          <script type="text/javascript"
-          src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+          src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML-full">
         </script>
     </head>
     <body>
@@ -38,9 +35,16 @@
               <a href="/posts.html">All posts</a>
           </div> -->
           $body$
+          <div id="footer">
+          <a href="http://www.mathjax.org/">
+            <img title="Powered by MathJax"
+                 src="http://www.mathjax.org/badge-square.png"
+                 border="0" alt="Powered by MathJax" height="50"/>
+          </a>
+          </div><!-- id="footer" -->
+
         </div><!-- id="content" -->
       </div><!-- id="contain" -->
-
 <script type="text/javascript">
    var disqus_shortname = 'lambdalog'; // required: replace example with your forum shortname
 
