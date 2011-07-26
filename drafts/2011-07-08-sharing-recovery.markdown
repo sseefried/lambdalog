@@ -179,7 +179,7 @@ knot because `Exp` appears on the left and right hand side of the equals sign.)
 
 This is what it looks like in the heap.
 
-![AST of `fib 4` in the heap](/static/images/fib_4_heap.jpg)
+![AST of `fib 4` in the heap](/static/sharing-recovery/images/fib_4_heap.jpg)
 
 I've used some syntactic conventions here:
 
@@ -234,7 +234,7 @@ expressions* and *bodies*. A bound expression is identified by a number called i
 let-node, `LetSharing (StableSharingExp sn sharingExp) bound` is equal to `sn`. A
 let-variable-node, `VarSharing sn` references bound expression `sharingExp`.
 
-![`fib 4` with sharing recovered](/static/images/fib_4_recovered.jpg)
+![`fib 4` with sharing recovered](/static/sharing-recovery/images/fib_4_recovered.jpg)
 
 The notation this time around is:
 
@@ -269,7 +269,7 @@ Expression `fib 4` produces a tree like this:
 **In the final version of this blog post try produce the graphs all at once so that the stable
   names are all the same**
 
-![`fib 4` after phase 1](/static/images/fib_4_after_phase_1.jpg)
+![`fib 4` after phase 1](/static/sharing-recovery/images/fib_4_after_phase_1.jpg)
 
 In this figure we show the stable name of the `Exp` node that each `ExpSharing` replaced. (This
 information is stored in each `ExpSharing` node; see the definition above. **LINK ME**.) The
@@ -500,19 +500,25 @@ manyAdds = let one = constant 1
             in add1 + add2
 ~~~
 
+Before sharing recovery this AST looks like:
+
+![AST of `manyAdds` before sharing recovery](/static/sharing-recovery/images/example_before.png)
+
 In practice you will always get the same graph after phase 1 for this program, because the
 algorithms descends depth first in a deterministic order. However, by just reversing the order
 of the argument in `add1 + add2` one gets a different graph. One of these demonstrates very
-nicely why we need to keep track of dependencies between `DepGroup`s.
+nicely why we need to keep track of dependencies between `DepGroup`s. It looks like this:
 
-**PUT IN PICTURE OF THIS GRAPH. SHOW THE OTHER TOO See many_adds_after_phase1.ps*.
+![AST of `manyAdds` after phase 1 of sharing recovery](/static/sharing-recovery/images/example_1.png)
+
+
 
 We have labeled the nodes in this graph using letters of the alphabet to illustrate what
 is going on. Occurrence map is as follows:
 
-* 2756 -> 2
-* 2755 -> 2
-* all other stable names occur 1 time.
+* $occ(4) = 2$
+* $occ(3) = 2$
+* $occ(n) = 1$, for all other $n$.
 
 [
 
@@ -527,7 +533,9 @@ Traversing bottom up. The order in which we will encounter nodes is F, G, D, E, 
 
 ### Tree F
 
-We do nothing to **F** since 2733 has occurrence count 1. Shared nodes are empty
+**[FIXME: use occ(SN_x) in most places]**
+
+We leave tree $F$ as it is since $occ(F) = 1$. Shared nodes are empty
 
 ~~~{.haskell}
 SharedNodes []
@@ -535,56 +543,64 @@ SharedNodes []
 
 ### Tree G
 
-We do nothing to **G** since its a `VarSharing` node. Create a `SharedNodes` object as
-follows. `depGroup` is set **G**. `sharedNodeMap` maps 2756 to **G** with count 1.
+We leave $G$ as it is since it's a `VarSharing` node. The shared nodes collection maps
+$4 \rightarrow (G, 1)$.
 
 ~~~{.haskell}
-SharedNodes [DepGroup { depGroupRoot = G
-                      , sharedNodeMap = [ 2756 -> (G, 1) ]
-                      , edges = [] }]
+SharedNodes [DepGroup { depGroupRoot  = < G >
+                      , sharedNodeMap = < [ 4 -> (G,1) ] >
+                      , edges         = < [] > }]
 ~~~
 
-[We'll often say Tree X has occurrence count $n$. By this we mean that "the tree rooted at node
-X (of type `SharingExp a`) has a stable expression name $sn$, which maps to occurrence count $n$]
+**[FIXME: Put this text somewhere. We'll often say Tree X has occurrence count $n$. By this we mean that "the tree rooted at node
+X (of type `SharingExp a`) has a stable expression name $sn$, which maps to occurrence count $n$. We might write this as $occ(X) = n$ ]**
 
 ### Tree D
 
-Tree D has occurrence count 2. We replace it with node `VarSharing 2755`. Call this **D'**.  
+Since $occ(D) = 2$, we replace it with node `VarSharing 3`. Call this tree $D'$.
 Joining shared nodes and merging dependency groups just gives us the same dependency group as
-we got for node **G**. We then insert a new mapping `2755 -> (D,1)` and an edge `2755 -> 2756`.
+we got for node $G$. We then insert a new mapping $3 \rightarrow (D, 1)$ and an edge $3 \rightarrow 4$.
 
 ~~~{.haskell}
-SharedNodes [ DepGroup { depGroupRoot = D
-                       , sharedNodeMap = [2755 -> (D,1), 2756 -> (G,1) ]
-                       , edges = [ 2755 -> 2756 ] }]
+SharedNodes [ DepGroup { depGroupRoot  = < D >
+                       , sharedNodeMap = < [ 3 -> (D,1), 4 -> (G,1) ] >
+                       , edges         = < [ 3 -> 4 ] > }] 
 ~~~
+
+The AST now looks like: 
+
+![AST of `manyAdds` after replacing $D$ with $D'$](/static/sharing-recovery/images/example_2.png)
 
 ### Tree E
 
-Tree E has occurrence count 2. We replace it with `VarSharing 2756`. Call this **E'**
+Similar to tree $G$, $occ(E) = 2$ so we replace it with `VarSharing 4`. Call this tree $E'$. 
 
 ~~~{.haskell}
-SharedNodes [DepGroup { depGroupRoot = E, sharedNodeMap = [ 2756 -> (E,1)] }]
+SharedNodes [DepGroup { depGroupRoot  = < E >
+                      , sharedNodeMap = < [ 4 -> (E,1)] > 
+                      , edges         = < [] > }]
 ~~~
+
+![AST of `manyAdds` after replacing $E$ with $E'$](/static/sharing-recovery/images/example_3.png)
 
 ### Tree B
 
-Now we get to an interesting part. Tree B is not shared, but joining the shared nodes
-collection of the children gives us: 
+Now we get to an interesting part. Tree $B$ is not shared, but joining the shared nodes
+collections of the children gives us: 
 
 ~~~{.haskell}
-SharedNodes [DepGroup { depGroupRoot = D
-                      , sharedNodeMap = [2755 -> (D,1), 2756 -> (G,2)]
-                      , edges = [ 2755 -> 2756 ] }]
+SharedNodes [DepGroup { depGroupRoot  = < D >
+                      , sharedNodeMap = < [ 3 -> (D,1), 4 -> (G,2) ] >
+                      , edges         = < [ 3 -> 4 ] > }]
 ~~~
 
-(Note: <code>G `pickNoneVar` E = E</code>) **[FIXME: Perhaps use LaTeX equiv?]**
+(Note: <code>G `pickNoneVar` E == E</code>)
 
 A naive, and incorrect algorithm, would attempt to insert a let-node at this point
-because the sharing count of 2756 at this point is equal to the occurrence count. The let-node
+because the sharing count of 4 at this point is equal to the occurrence count. The let-node
 would have a bound expression of tree E. We simply can't do this because we have not yet
 inserted a let-node whose bound expression will be tree D. It will be inserted "further up the
-tree" so to speak, and it will depend on variable 2756 being in scope.
+tree" so to speak, and it will depend on variable 4 being in scope.
 
 **[FIXME: Have I adequately discussed scope?]**.
 
@@ -596,11 +612,10 @@ Put another way, we would be constructing an expression like:
 
 Similar to Tree G.
 
-
 ~~~{.haskell}
-SharedNodes [DepGroup { depGroupRoot = C
-                      , sharedNodeMap = [ 2755 -> (C, 1) ]
-                      , edges = [] }]
+SharedNodes [DepGroup { depGroupRoot  = < C >
+                      , sharedNodeMap = < [ 3 -> (C, 1) ] >
+                      , edges         = < [] > }]
 ~~~
 
 ### Tree A
@@ -609,16 +624,20 @@ Joining the shared nodes collection of tree **B** and tree **C** we get (noting 
 `pickNoneVar` C = D</code>):
 
 ~~~{.haskell}
-SharedNodes [DepGroup { depGroupRoot = D
-                      , sharedNodeMap = [2755 -> (D,2), 2756 -> (G,2)]
-                      , edges = [ 2755 -> 2756 ] }]
+SharedNodes [DepGroup { depGroupRoot  = < D >
+                      , sharedNodeMap = < [ 3 -> (D,2), 4 -> (G,2)] >
+                      , edges         = < [ 3 -> 4 ] > }]
 ~~~
 
 We now have a dependency group where each node has a sharing count equal to its occurrence
 count. This means that we are ready to insert let nodes. We perform a [topological sort]()
-and discover that the order of the let-nodes should be $2756, 2755$.
+and discover that the order of the let-nodes should be $[4, 3]$.
 
-**[Let's get consistent with our notation. Perhaps we should have something like $SN_2756$ for
+We insert the let nodes, in the appropriate order, finally getting.
+
+![AST of `manyAdds` after sharing recovery](/static/sharing-recovery/images/example_after.png)
+
+**[Let's get consistent with our notation. Perhaps we should have something like $SN_{4}$ for
   a stable expression name?
   - use different fonts in Haskell code for the trees. Requires modifications to Pandoc? Hope not.
 ]**

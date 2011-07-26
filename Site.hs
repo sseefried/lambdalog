@@ -48,6 +48,13 @@ renderPostsList glob pageName title = do
         >>> applyTemplateCompiler "templates/default.html"
         >>> relativizeUrlsCompiler
 
+compileImages :: Pattern a -> RulesM (Pattern CopyFile)
+compileImages glob = do
+  match glob $ do
+    route idRoute
+    compile copyFileCompiler
+
+
 main :: IO ()
 main = hakyll $ do
     -- Compress CSS
@@ -93,9 +100,7 @@ main = hakyll $ do
     match "templates/*" $ compile templateCompiler
 
     -- Compile images
-    match "static/images/*" $ do
-      route idRoute
-      compile copyFileCompiler
+    compileImages "static/sharing-recovery/images/*"
 
   where
     renderTagCloud' :: Compiler (Tags String) String
