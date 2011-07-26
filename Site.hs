@@ -17,19 +17,26 @@ lambdalogPageCompiler = pageCompilerWithPandoc defaultHakyllParserState opts id
       writerHTMLMathMethod = MathJax "http://cdn.mathjax.org/mathjax/latest/MathJax.js" }
 
 
-renderPosts :: Pattern a -> RulesM (Pattern (Page String))
-renderPosts glob = do
+renderPostsGen :: Bool -> Pattern a -> RulesM (Pattern (Page String))
+renderPostsGen isDraft glob = do
     -- Render posts
     match glob $ do
         route   $ setExtension ".html"
         compile $ lambdalogPageCompiler
             >>> arr (renderDateFields ("%e", "%b", "%Y") ("1", "Jan", "2001"))
             >>> renderTagsField "prettytags" (fromCapture "tags/*")
-            >>> arr setDisqusId
+            >>> arr (if isDraft then setDraftDisqusId else setDisqusId)
             >>> arr (copyBodyToField "renderedPost")
             >>> applyTemplateCompiler "templates/post.html"
             >>> applyTemplateCompiler "templates/default.html"
             >>> relativizeUrlsCompiler
+
+renderPosts :: RulesM (Pattern (Page String))
+renderPosts = renderPostsGen False "posts/*"
+
+renderDrafts :: RulesM (Pattern (Page String)) 
+renderDrafts = renderPostsGen True "drafts/*"
+
 
 renderPostsList :: Pattern (Page String) -> String -> String -> RulesM (Identifier (Page String))
 renderPostsList glob pageName title = do
@@ -48,8 +55,8 @@ main = hakyll $ do
         route   idRoute
         compile compressCssCompiler
 
-    renderPosts "posts/*"
-    renderPosts "drafts/*"
+    renderPosts
+    renderDrafts
 
     -- Render posts list
     renderPostsList "posts/*" "posts.html" "All posts"

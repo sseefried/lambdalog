@@ -29,9 +29,16 @@ renderDateFields (dayFormat, monthFormat, yearFormat) defaultValue page =
                           dateString :: Maybe UTCTime
         return $ (aux dayFormat time, aux monthFormat time, aux yearFormat time)
 
-setDisqusId :: Page String -> Page String
-setDisqusId page = setField key disqusId page
+setDisqusId ::  Page String -> Page String
+setDisqusId = setDisqusIdGen ""
+
+setDraftDisqusId :: Page String -> Page String
+setDraftDisqusId = setDisqusIdGen "draft-"
+
+setDisqusIdGen :: String -> Page String -> Page String
+setDisqusIdGen prefix page = setField key disqusId page
   where
     key = "disqusId"
     path = getField "path" page
-    disqusId = fromMaybe (take 80 . takeBaseName $ path) $ getFieldMaybe key page
+    disqusId :: String
+    disqusId = prefix ++ (fromMaybe (take 80 . takeBaseName $ path) $ getFieldMaybe key page)
