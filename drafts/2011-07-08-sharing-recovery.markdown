@@ -2,31 +2,34 @@
 title: Sharing Recovery in deeply embedded DSLs
 author: Sean Seefried
 tags: domain specific languages, deep embedding, sharing
-hours: 5
+hours: 7.5
 ---
 
 # Introduction
 
 I could easily start this post by banging on about how great embedded domain specific languages
 are but that's already been done quite adequately in a [number]() [of]() [places](). There are
-a few options when it comes to implementing domain specific languages. They can be a
+a two main options when it comes to implementing domain specific languages. They can be a:
 
-* [shallow embeddeding]() or [internal]() DSL. In this case the terms of the [target
-  language](LINK ME) are terms in the [host language](). e.g. functions in the target language
-  are functions in the host language. In this case one runs a program by compiling the
-  program. The code generated is just the code that is normally generated for the host language
-  since terms in the target language *are* terms in the host language.
+* [shallow embeddeding][shallow-embedding] or [internal DSL][dsl-definitions]. In this case the
+  terms of the [target language][target-language] are terms in the *host
+  language*. e.g. functions in the target language are functions in the host language. In this
+  case one runs a program by compiling the program. The code generated is just the code that is
+  normally generated for the host language since terms in the target language *are* terms in
+  the host language.
 
-* [deeply embedding]() or [external]() DSL. In this case the terms of the target language are
-  instances of a data structure in the host language (usually an [abstract syntax tree]()
-  (AST)). The terms are constructed using various helper functions and are interpreted or
-  compiled. This differs from the shallow embedding case because one must write the
-  interpreter/compiler and does not gain the benefit of reusing the host language's compiler.
+* [deep embedding] or [external DSL][dsl-definitions]. In this case the terms of the target
+  language are instances of a data structure in the host language (usually an [abstract syntax
+  tree][ast] or AST). The terms are constructed using various helper functions and are
+  interpreted or compiled. This differs from the shallow embedding case because one must write
+  the interpreter/compiler and does not gain the benefit of reusing the host language's
+  compiler.
 
 A not immediately obvious problem that occurs when one implements a deeply embedded DSL is that
 one can easily lose the *term sharing* implicitly present in the target language. I'll
 demonstrate this with an example. Say our target language is the [simply typed lambda
-calculus]() with arithmetic. A program in this language might look something like:
+[calculus][simply-typed-lambda-calculus] with arithmetic. A program in this language might look
+something like:
 
 $(2+3) + (2+3)$
 
@@ -37,16 +40,15 @@ prog :: Exp Int
 prog = let v = 2 + 3 in v + v
 ~~~
 
-I'll give you the definition of this language soon but for the moment just trust me when I say
+I'll give you the definition of this language soon but, for the moment, just trust me when I say
 this Haskell program generates the following AST
 
 ~~~{.haskell}
 Add (Add (Const 2) (Const 3)) (Add (Const 2) (Const 3))
 ~~~
 
-Notice that the sharing implicit in the let-expression of Haskell has
-now been removed. What we would prefer it to generate is something
-more like:
+Notice that the sharing implicit in the Haskell let-expression no longer exists. What we would
+prefer it to generate is something more like:
 
 ~~~{.haskell}
 LetE (Add (Const 2) (Const 3)) (Add (Lvar 0) (Lvar 0))
@@ -59,9 +61,9 @@ notation that ${x}$ refers to let-variable (`Lvar`)with de Bruijn index $x$).
 ## Memory usage is the real problem
 
 You might be thinking, what's the big deal? Who cares if a term gets replicated a few
-times. Can't we always recover the sharing using *common sub-expression elimination* ([CSE]())?
-This is true (if inefficient) but consider the case where one wants to generate the (unrolled)
-code that finds the $n$th Fibonacci number.
+times. Can't we always recover the sharing using *common sub-expression elimination*
+([CSE][cse])?  This is true (if inefficient) but consider the case where one wants to generate
+the [unrolled][loop-unwinding] code that finds the $n$th Fibonacci number.
 
 ~~~{.haskell}
 fib :: Int -> HOAS.Exp Integer
@@ -73,52 +75,47 @@ fib x = fib' x 1 1
     | otherwise = fib' (x - 1) e2 (e1 + e2)
 ~~~
 
-`fib 4` produces:
+As an example, the expression `fib 4` evaluates to:
 
 ~~~{.haskell}
 Add (Add (Add (Const 1) (Const 1)) (Const 1)) (Add (Const 1) (Const 1))
 ~~~
 
-There's something a little special about this function. Depending on the value of the integer
-passed to `fib` the programs generates an AST. We call this style of program a
-*generator*. Just from the type alone it's not always possible to tell whether a program is a
-generator or not. However, in general a function is a generator if it creates an AST based on
-the value of a host language term (i.e. `Int` in this case). We cannot actually
-write the fibonacci function in the simply type lambda calculus since it does not contain the
-notion of recursion.
+Function `fib` is perhaps a little more interesting than it first appears. Depending on the
+value of the integer passed to `fib` the program generates an AST. What's interesting is that
+this integer is a host language term and not a target langauge term. Consequently we call this
+style of program a *generator*. However, just from the type alone it's not always possible to
+tell whether a program is a generator or not. The general rule is that a function is a
+generator if it creates an AST based on the value of a host language term (i.e. `Int` in this
+case). In fact, we cannot actually write the fibonacci function in the simply type lambda
+calculus since it does not contain the notion of recursion.
 
-In fact, function `fib`, will produce an AST of size proportional to the $n$th
-fibonacci number! As soon as the AST is traversed -- whether it's to interpret it, generate
-code for it or transform it to another intermediate form -- this will quickly consume all of
-the machine's available memory as $n$ increases.
+In fact, function `fib`, will produce an AST of size proportional to the $n$th fibonacci
+number! This sounds terrible but only because this is its *conceptual* size. In fact, things
+aren't nearly so dire; even if one were to fully evaluate the closure `fib 4` it would still
+not take up that much memory since there is *implicit sharing* in the heap of the Haskell
+run-time.
 
-We saw what `fib 4` produces without sharing recovery. What we really want it to
-produce is:
+Unfortunately, this implicit sharing can easily be lost. One obvious way, which happened to us
+during the development of Accelerate, is to convert the AST to another data structure.  In our
+case, converting from a HOAS representation to an explict representation using de Bruijn
+indices led to the computer's memory being completely consumed by multi-gigabyte ASTs.
 
-~~~{.haskell}
-Let (Const 1)
-    (Let (Add (Lvar 0) (Lvar 0))
-         (Add (Lvar 0) (Add (Lvar 1) (Lvar 0))))
-~~~
-
-or equivalently `let v0 = 1 in let v1 = v0 + v0 in v0 + (v1 + v0)`
-
-## What makes our sharing recovery different?
-
-* Shallow embedding of type system in AST nodes.
-* Using a Higher Order Abstract Syntax representation. How do you recover sharing "under the lambdas"?
-
-## What it looks like in the heap
-
-I'm going to show you what the ast for `fib 4` looks like in the heap. But before I can do that adequately it's time to introduce the AST for our language.
+The essence of *sharing recovery* is to take this implicit sharing in the heap and modify the
+AST to represent it explicitly. We'll do this by looking at what `fib 4` looks like in the heap
+when fully evaluated. But before I can do that adequately I'll need to introduce the data type
+for the AST of our language. After that we'll be in much better shape to start talking about
+sharing recovery.
 
 # The AST
+
+Our AST represents terms of the simply typed lambda calculus with arithmetic.
 
 ## Elements
 
 We have *primitive types* in our language -- integers and floating point reals.
 
-vv~~~{.haskell}
+~~~{.haskell}
 class (Eq a, Show a, Typeable a) => Elt a
 
 instance Elt Int
@@ -127,8 +124,10 @@ instance Elt Bool
 ~~~
 
 We require that the elements are instances of the `Typeable` class because we use dynamic
-typing in our solution. In particular * when substituting in things from the environment during
-de Bruijn conversion * during sharing recovery
+typing in our solution. In particular:
+
+* when substituting in things from the environment during de Bruijn conversion
+* during sharing recovery
 
 We also have *number elements*.
 
@@ -143,13 +142,11 @@ instance NumElt Float
 
 ### Values with function types vs. primitive types
 
-Although functions are first class citizens in the the simply type lambda calculus with
+Although functions are first class citizens in the the simply typed lambda calculus with
 arithmetic (**STLCWA???**), we distinguish them from values with primitive types using two
 different data types so that we can ensure that only functions can be applied to other values.
 
 ### Pre-recursive data types
-
-**FIXME: Check that pre-recursive is a real term or define it yourself.**
 
 During sharing recovery we need to annotate the original AST with new nodes. The standard
 technique to do this is define a *pre-recursive type* where each recursive occurrence of a type
@@ -189,12 +186,13 @@ I've used some syntactic conventions here:
 * Rectangular nodes are of type `Exp a`
 * Elliptical nodes are of type `PreExp Exp Fun a`
 
-This graph was automatically generated. How did we discover the sharing in the heap? It turns
-out that GHC has provided run-time support for this via a mechanism called *stable
-names*. Stable names are abstract names for an object in the heap that support fast, not quite
-exact, comparison ($O(1)$) and hashing. In other language one can use pointer or reference
-equality to quickly compare two objects, which allows fast hash table implementations. One
-cannot compare object addresses in Haskell since the garbage collector can move objects around.
+This graph was automatically generated. So, if this is the case how did we discover the sharing
+in the heap? It turns out that GHC has provided run-time support for this via a mechanism
+called *stable names*. Stable names are abstract names for an object in the heap that support
+fast, not quite exact, comparison ($O(1)$) and hashing. In other language one can use pointer
+or reference equality to quickly compare two objects, which allows fast hash table
+implementations. One cannot compare object addresses in Haskell since the garbage collector can
+move objects around.
 
 Two stable names that are equal are guaranteed to refer to the same object. The converse is not
 true; if two stable names are not equal then the objects they name may still be equal. Thus,
@@ -447,18 +445,18 @@ If, and only if, the node we are currently examining (let's call it $N$):
 
 then
 
-
-
-1. We replace the node with a `VarSharing` node.  2. We create a `SharedNodes` structure
-containing one big dependency group by: * inserting into the `sharedNodeMap` the tree we just
-replaced and incrementing its count. (A node with the same stable expression name might already
-be there.)  * joining the all the child `SharedNodes` structures into one. Call this the
-*children shared nodes collection* (CSNC) **FIMXE: CRAP DEFINITION** * merging all the
-dependency groups in the CSNC into one big dependency group.  This reflects the fact that the
-shared tree we have just replaced with a `VarSharing` node depends on all the other shared
-trees that were replaced by `VarSharing` nodes within it.  **FIXME: AWKWARD BUT ON THE RIGHT
-TRACK** * inserting an edge from stable expression name of $N$ to stable expression names of
-the root nodes of all the child dependency groups.
+1. We replace the node with a `VarSharing` node.
+2. We create a `SharedNodes` structure containing one big dependency group by: 
+  * inserting into the `sharedNodeMap` the tree we just replaced and incrementing its 
+    count. (A node with the same stable expression name might already be there.)  
+  * joining the all the child `SharedNodes` structures into one. Call this the
+    *children shared nodes collection* (CSNC) **FIMXE: CRAP DEFINITION** * merging all 
+    the dependency groups in the CSNC into one big dependency group.  This reflects the 
+    fact that the shared tree we have just replaced with a `VarSharing` node depends on all 
+    the other shared trees that were replaced by `VarSharing` nodes within it.  
+    **FIXME: AWKWARD BUT ON THE RIGHT TRACK** * inserting an edge from stable 
+    expression name of $N$ to stable expression names of the root nodes of all the 
+    child dependency groups.
     
 The code to do this is here:
 
@@ -539,6 +537,7 @@ SharedNodes []
 
 We do nothing to **G** since its a `VarSharing` node. Create a `SharedNodes` object as
 follows. `depGroup` is set **G**. `sharedNodeMap` maps 2756 to **G** with count 1.
+
 ~~~{.haskell}
 SharedNodes [DepGroup { depGroupRoot = G
                       , sharedNodeMap = [ 2756 -> (G, 1) ]
@@ -585,7 +584,7 @@ A naive, and incorrect algorithm, would attempt to insert a let-node at this poi
 because the sharing count of 2756 at this point is equal to the occurrence count. The let-node
 would have a bound expression of tree E. We simply can't do this because we have not yet
 inserted a let-node whose bound expression will be tree D. It will be inserted "further up the
-tree" so to speak, and it will depend on variable 2756 being in scope. 
+tree" so to speak, and it will depend on variable 2756 being in scope.
 
 **[FIXME: Have I adequately discussed scope?]**.
 
@@ -674,8 +673,12 @@ the `TaggedSharingExp` constructor, yielding a value of type `SharingFun a`.
 
 The unique value, $i$, essentially acts as a variable name. We have converted from HOAS to an
 explicit, named, representation of lambda terms. Once sharing recovery has been done this can
-easily be converted back into a HOAS representation if desired. We personally are not
-interested in that. We are only interested in converting to de Bruijn notation, which is also
+easily be converted back into a HOAS representation if desired. 
+
+**FIXME: Possibly cut**
+-------------
+We personally are not interested in that.
+We are only interested in converting to de Bruijn notation, which is also
 straightforward. Here's how:
 
 * Initialise a finite map from unique identifiers to de Bruijn indices. Call this the *tag map*
@@ -685,6 +688,7 @@ straightforward. Here's how:
   unique identifier to the current lambda depth.
 * When one pattern matches on `Tag j`, look up the mapping of $j$ in the finite map and replace it
   with the corresponding de Bruijn index.
+------------
 
 # Referential transparency
 
@@ -715,13 +719,34 @@ transparent.
 Technically it is possible that the stable name of an object in the heap will change during the
 traversal (due to garbage collection), but this happens rarely in practice.
 
+# Why is `unsafePerformIO` safe?
 
-# Other things to talk about
+The side effects of `makeOccurrenceMap`
 
-* unsafePerformIO and why it's safe during sharing recovery.
+# What makes our sharing recovery different?
 
-# Proof of correctness (in Agda?)
-                      
+**FIXME: Expand this section**
+
+* mention related work in this area.
+
+* Shallow embedding of type system in AST nodes.
+
+* Using a Higher Order Abstract Syntax representation. How do you recover sharing "under the
+  lambdas"?
+
+# In the next episode
+
+A proof of correctness.
+
+[shallow-embedding]: http://en.wiktionary.org/wiki/shallow_embedding
+[dsl-definitions]: http://martinfowler.com/bliki/DomainSpecificLanguage.html
+[target-language]: http://en.wikipedia.org/wiki/Target_language
+[deep-embedding]: http://en.wiktionary.org/wiki/deep_embedding
+[ast]: http://en.wikipedia.org/wiki/Abstract_syntax_tree
+[simply-typed-lambda-calculus]: http://en.wikipedia.org/wiki/Abstract_syntax_tree
 [adjacency-list]: http://en.wikipedia.org/wiki/Adjacency_list
+[cse]: http://en.wikipedia.org/wiki/Common_subexpression_elimination
+[loop-unwinding]: http://en.wikipedia.org/wiki/Loop_unwinding
 [hashmap]: http://hackage.haskell.org/packages/archive/unordered-containers/0.1.4.0/doc/html/Data-HashMap-Lazy.html
 [hashset]: http://hackage.haskell.org/packages/archive/unordered-containers/0.1.4.0/doc/html/Data-HashSet.html
+
