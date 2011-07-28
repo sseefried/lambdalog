@@ -7,6 +7,15 @@ hours: 7.5
 
 # Introduction
 
+Today's post is about sharing recovery in deeply embedded domain specific languages (DSLs). 
+
+This is way too big for one blog post, so I'm going to split it into two.
+In the first post I'll provide some background, explain the problem and what sharing recovery is, as well as providing some preliminaries.
+
+In the second post I'll dive into more depth. Since this is a blog post and I'm not limited by space I'll aim for ease of reading instead of brevity or density.
+
+# Background
+
 I could easily start this post by banging on about how great embedded domain specific languages
 are but that's already been done quite adequately in a [number]() [of]() [places](). There are
 a two main options when it comes to implementing domain specific languages. They can be a:
@@ -53,6 +62,8 @@ prefer it to generate is something more like:
 ~~~{.haskell}
 LetE (Add (Const 2) (Const 3)) (Add (Lvar 0) (Lvar 0))
 ~~~
+
+**[FIXME: Need to remind people later that this de Bruijn form can be recovered from the SharingExp data type]**
 
 We're using [de Bruijn indices]() to refer to variables. Here we have introduced a *let-node*
 which binds let-variable $0$ to the expression $2 + 3$ in the expression ${0} + {0}$ (using the
