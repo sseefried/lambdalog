@@ -318,7 +318,7 @@ the let-nodes they depend on.
 
 # To be continued &hellip;
 
-In the [part 2][part-2] we will look at the algorithm in more detail.
+In [part 2][part-2] we will look at the algorithm in more detail.
 
 [part-2]: drafts/sharing-recovery-part-2.html
 [hudak-paper]: http://portal.acm.org/citation.cfm?id=242477
