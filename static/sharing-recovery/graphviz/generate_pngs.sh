@@ -3,8 +3,10 @@
 
 for i in *.dot; do 
 
-dot $i -Tpng -o `basename $i .dot`.png
-mv *.png ../images
+NAME=`basename $i .dot`.png
+dot $i -Tpng -o $NAME
+echo "Generating $NAME"
 
 done
 
+mv *.png ../images

@@ -1,0 +1,32 @@
+digraph G { 
+size = "7.5,10.5"
+node_25_00 [shape=box, label="ExpSharing\n[Exp sn = 1]"];
+node_24_00 [shape=box, label="ExpSharing\n[Exp sn = 2]"];
+node_31_00 [shape=box, label="ExpSharing\n[Exp sn = 3]"];
+node_21_00 [shape=box, label="ExpSharing\n[Exp sn = 4]"];
+node_22_00 [shape=box, label="LetSharing 2"];
+node_20_00 [shape=box, label="LetSharing 4"];
+node_30_00 [shape=box, label="VarSharing 2"];
+node_34_00 [shape=box, label="VarSharing 2"];
+node_27_00 [shape=box, label="VarSharing 4"];
+node_28_00 [shape=box, label="VarSharing 4"];
+node_33_00 [shape=box, label="VarSharing 4"];
+node_26_00 [shape=ellipse, label="Add"];
+node_29_00 [shape=ellipse, label="Add"];
+node_32_00 [shape=ellipse, label="Add"];
+node_23_00 [shape=ellipse, label="Const 1"];
+node_25_00 -> node_29_00 ;
+node_24_00 -> node_26_00 ;
+node_31_00 -> node_32_00 ;
+node_21_00 -> node_23_00 ;
+node_22_00 -> node_25_00 [ label = "body" ];
+node_22_00 -> node_24_00 [ label = "binder" ];
+node_20_00 -> node_22_00 [ label = "body" ];
+node_20_00 -> node_21_00 [ label = "binder" ];
+node_26_00 -> node_28_00 ;
+node_26_00 -> node_27_00 ;
+node_29_00 -> node_31_00 ;
+node_29_00 -> node_30_00 ;
+node_32_00 -> node_34_00 ;
+node_32_00 -> node_33_00 ;
+}

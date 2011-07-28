@@ -1,8 +1,7 @@
 #!/bin/bash
 
-
 TGT="mco:/home/sseefried/domains/lambdalog.seanseefried.com/public"
-ghc-hakyll --make Site.hs
+ghc-sandbox hakyll --make Site.hs -optl-Wl,-no_pie
 [ $? -eq 0 ] || (exit 1)
 ./Site clean
 ./Site build

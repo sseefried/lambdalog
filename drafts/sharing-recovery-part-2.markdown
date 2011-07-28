@@ -1,328 +1,17 @@
 ---
-title: Sharing Recovery in deeply embedded DSLs
+title: Sharing Recovery in deeply embedded DSLs &mdash; Part 2
 author: Sean Seefried
 tags: domain specific languages, deep embedding, sharing
-hours: 7.5
 ---
 
 # Introduction
 
-Today's post is about sharing recovery in deeply embedded domain specific languages (DSLs). 
+If haven't yet read [part 1](drafts/sharing-recovery-part-1.html) you should probably do that now.
 
-This is way too big for one blog post, so I'm going to split it into two.
-In the first post I'll provide some background, explain the problem and what sharing recovery is, as well as providing some preliminaries.
+In the last post we looked at what sharing recovery is and why it is required in deeply embedded DSLs. In this post
+we describe the algorithm in more detail.
 
-In the second post I'll dive into more depth. Since this is a blog post and I'm not limited by space I'll aim for ease of reading instead of brevity or density.
-
-# Background
-
-I could easily start this post by banging on about how great embedded domain specific languages
-are but that's already been done quite adequately in a [number]() [of]() [places](). There are
-a two main options when it comes to implementing domain specific languages. They can be a:
-
-* [shallow embeddeding][shallow-embedding] or [internal DSL][dsl-definitions]. In this case the
-  terms of the [target language][target-language] are terms in the *host
-  language*. e.g. functions in the target language are functions in the host language. In this
-  case one runs a program by compiling the program. The code generated is just the code that is
-  normally generated for the host language since terms in the target language *are* terms in
-  the host language.
-
-* [deep embedding] or [external DSL][dsl-definitions]. In this case the terms of the target
-  language are instances of a data structure in the host language (usually an [abstract syntax
-  tree][ast] or AST). The terms are constructed using various helper functions and are
-  interpreted or compiled. This differs from the shallow embedding case because one must write
-  the interpreter/compiler and does not gain the benefit of reusing the host language's
-  compiler.
-
-A not immediately obvious problem that occurs when one implements a deeply embedded DSL is that
-one can easily lose the *term sharing* implicitly present in the target language. I'll
-demonstrate this with an example. Say our target language is the [simply typed lambda
-[calculus][simply-typed-lambda-calculus] with arithmetic. A program in this language might look
-something like:
-
-$(2+3) + (2+3)$
-
-One might write this in Haskell (using some clever overloading of arithmetic operators) as:
-
-~~~{.haskell}
-prog :: Exp Int
-prog = let v = 2 + 3 in v + v
-~~~
-
-I'll give you the definition of this language soon but, for the moment, just trust me when I say
-this Haskell program generates the following AST
-
-~~~{.haskell}
-Add (Add (Const 2) (Const 3)) (Add (Const 2) (Const 3))
-~~~
-
-Notice that the sharing implicit in the Haskell let-expression no longer exists. What we would
-prefer it to generate is something more like:
-
-~~~{.haskell}
-LetE (Add (Const 2) (Const 3)) (Add (Lvar 0) (Lvar 0))
-~~~
-
-**[FIXME: Need to remind people later that this de Bruijn form can be recovered from the SharingExp data type]**
-
-We're using [de Bruijn indices]() to refer to variables. Here we have introduced a *let-node*
-which binds let-variable $0$ to the expression $2 + 3$ in the expression ${0} + {0}$ (using the
-notation that ${x}$ refers to let-variable (`Lvar`)with de Bruijn index $x$).
-
-## Memory usage is the real problem
-
-You might be thinking, what's the big deal? Who cares if a term gets replicated a few
-times. Can't we always recover the sharing using *common sub-expression elimination*
-([CSE][cse])?  This is true (if inefficient) but consider the case where one wants to generate
-the [unrolled][loop-unwinding] code that finds the $n$th Fibonacci number.
-
-~~~{.haskell}
-fib :: Int -> HOAS.Exp Integer
-fib x = fib' x 1 1
-  where
-   fib' :: Int -> HOAS.Exp Integer -> HOAS.Exp Integer -> HOAS.Exp Integer
-   fib' x e1 e2
-    | x == 0    = e1
-    | otherwise = fib' (x - 1) e2 (e1 + e2)
-~~~
-
-As an example, the expression `fib 4` evaluates to:
-
-~~~{.haskell}
-Add (Add (Add (Const 1) (Const 1)) (Const 1)) (Add (Const 1) (Const 1))
-~~~
-
-Function `fib` is perhaps a little more interesting than it first appears. Depending on the
-value of the integer passed to `fib` the program generates an AST. What's interesting is that
-this integer is a host language term and not a target langauge term. Consequently we call this
-style of program a *generator*. However, just from the type alone it's not always possible to
-tell whether a program is a generator or not. The general rule is that a function is a
-generator if it creates an AST based on the value of a host language term (i.e. `Int` in this
-case). In fact, we cannot actually write the fibonacci function in the simply type lambda
-calculus since it does not contain the notion of recursion.
-
-In fact, function `fib`, will produce an AST of size proportional to the $n$th fibonacci
-number! This sounds terrible but only because this is its *conceptual* size. In fact, things
-aren't nearly so dire; even if one were to fully evaluate the closure `fib 4` it would still
-not take up that much memory since there is *implicit sharing* in the heap of the Haskell
-run-time.
-
-Unfortunately, this implicit sharing can easily be lost. One obvious way, which happened to us
-during the development of Accelerate, is to convert the AST to another data structure.  In our
-case, converting from a HOAS representation to an explict representation using de Bruijn
-indices led to the computer's memory being completely consumed by multi-gigabyte ASTs.
-
-The essence of *sharing recovery* is to take this implicit sharing in the heap and modify the
-AST to represent it explicitly. We'll do this by looking at what `fib 4` looks like in the heap
-when fully evaluated. But before I can do that adequately I'll need to introduce the data type
-for the AST of our language. After that we'll be in much better shape to start talking about
-sharing recovery.
-
-# The AST
-
-Our AST represents terms of the simply typed lambda calculus with arithmetic.
-
-## Elements
-
-We have *primitive types* in our language -- integers and floating point reals.
-
-~~~{.haskell}
-class (Eq a, Show a, Typeable a) => Elt a
-
-instance Elt Int
-instance Elt Float
-instance Elt Bool
-~~~
-
-We require that the elements are instances of the `Typeable` class because we use dynamic
-typing in our solution. In particular:
-
-* when substituting in things from the environment during de Bruijn conversion
-* during sharing recovery
-
-We also have *number elements*.
-
-~~~{.haskell}
-class (Num a, Elt a) => NumElt a
-
-instance NumElt Int
-instance NumElt Float
-~~~
-
-## Lambda terms
-
-### Values with function types vs. primitive types
-
-Although functions are first class citizens in the the simply typed lambda calculus with
-arithmetic (**STLCWA???**), we distinguish them from values with primitive types using two
-different data types so that we can ensure that only functions can be applied to other values.
-
-### Pre-recursive data types
-
-During sharing recovery we need to annotate the original AST with new nodes. The standard
-technique to do this is define a *pre-recursive type* where each recursive occurrence of a type
-is replaced with a *type parameter*.
-
-~~~{.haskell}
-data Fun t where
-  Lam   :: (Elt a, Elt b) => (Exp a -> Exp b) -> Fun (a -> b)
-
-data PreExp exp fun t where
-  Tag   :: Elt a => Int -> PreExp exp fun a -- ^ tag for lambda bound variables.
-                                            -- Only used during conversion and sharing recovery.
-  App   :: (Elt a, Elt b) => fun (a -> b) -> exp a -> PreExp exp fun b
-  Const :: Elt a => a -> PreExp exp fun a
-  Add   :: NumElt a => exp a -> exp a -> PreExp exp fun a
-  Cond  :: Elt a => exp Bool -> exp a -> exp a -> PreExp exp fun a
-  Eq    :: Elt a => exp a -> exp a -> PreExp exp fun Bool
-
-newtype Exp a = Exp (PreExp Exp Fun a)
-~~~
-
-We have used convention of prefixing the name of the type with `Pre` to highlight that it is
-pre-recursive. The newtype `Exp` "ties the knot" ensure that all sub-expressions and
-sub-functions are of type `Exp` and `Fun` respectively. (You can tell that this type ties the
-knot because `Exp` appears on the left and right hand side of the equals sign.)
-
-## What `fib 4` looks like in the heap
-
-**FIXME: Use dot plugin**
-
-This is what it looks like in the heap.
-
-![AST of `fib 4` in the heap](/static/sharing-recovery/images/fib_4_heap.jpg)
-
-I've used some syntactic conventions here:
-
-* Rectangular nodes are of type `Exp a`
-* Elliptical nodes are of type `PreExp Exp Fun a`
-
-This graph was automatically generated. So, if this is the case how did we discover the sharing
-in the heap? It turns out that GHC has provided run-time support for this via a mechanism
-called *stable names*. Stable names are abstract names for an object in the heap that support
-fast, not quite exact, comparison ($O(1)$) and hashing. In other language one can use pointer
-or reference equality to quickly compare two objects, which allows fast hash table
-implementations. One cannot compare object addresses in Haskell since the garbage collector can
-move objects around.
-
-Two stable names that are equal are guaranteed to refer to the same object. The converse is not
-true; if two stable names are not equal then the objects they name may still be equal. Thus,
-observing sharing in the heap is not perfect and consequently our sharing recovery
-implementation may not recover all sharing.  However, it works well in practice.
-
-# Sharing recovery
-
-To recover sharing we need to introduce two new node types *let-nodes* and
-*let-variable-nodes*. The basic idea of sharing recovery is to find nodes that are shared in
-the heap, bind them to *let-variables*, and replace the shared nodes with *let-variable-nodes*.
-
-Our earlier definition of the pre-recursive type `PreExp` allows us to do this.
-
-~~~{.haskell}
-data SharingExp a where
-  VarSharing :: Elt a => StableName (Exp a)                           -> SharingExp a
-  LetSharing ::          StableSharingExp -> SharingExp a             -> SharingExp a
-  ExpSharing :: Elt a => StableName (Exp a) -> PreExp SharingExp SharingFun a -> SharingExp a
-
-data SharingFun a where
-  TaggedSharingExp :: Elt b => Int {-unique -} -> SharingExp b -> SharingFun (a -> b)
-
--- Stable name for an array computation associated with its sharing-annotated version.
---
-data StableSharingExp where
-  StableSharingExp :: Elt a => StableName (Exp a) -> SharingExp a -> StableSharingExp
-~~~
-
-Don't worry too much about the definition `SharingFun` for now; it will come in useful when we
-try to recover sharing in HOAS terms (i.e. "under the lambdas").
-
-## What are we aiming for?
-
-Once all the `LetSharing` and `VarSharing` nodes have been inserted we want the graph to look
-as follows.  The numbers in nodes have the following meaning. Let-nodes have *bound
-expressions* and *bodies*. A bound expression is identified by a number called its
-*binder*. (It is just equal to the stable name of the original `Exp` node.) The binder of
-let-node, `LetSharing (StableSharingExp sn sharingExp) bound` is equal to `sn`. A
-let-variable-node, `VarSharing sn` references bound expression `sharingExp`.
-
-![`fib 4` with sharing recovered](/static/sharing-recovery/images/fib_4_recovered.jpg)
-
-The notation this time around is:
-
-* Rectangular boxes are nodes of type `LetSharing a`.
-* Ellipses are, as they did before,  `PreExp` nodes but this time of their full type is
-  `PreExp SharingExp SharingFun a`.
-
-## A two phase approach
-
-Sharing recovery is done in two phases. As a very high level overview:
-
-* Phase 1 counts, through a top-down traversal, how many times each node is shared in the AST.
-* Phase 2 insert let-nodes through a bottom-traversal.
-
-Of course it's a little more detailed than that. In phase one we simultaneously create an
-occurrence map while creating an annotated tree *without sharing recovered*.
-
-An occurrence map is a mapping from stable names of `PreExp` nodes to the number of times that
-node is shared in the heap. We call the number of times a node has been shared in the heap its
-*occurrence count*. Identically we say that this is the occurrence count of the stable name.
-
-### Phase 1
-Phase one traverses the tree in a *depth first* manner; it is a top-down traversal.
-
-* If we encounter an `Exp` node we have *not* seen before we wrap up the `PreExp` node
-  contained within it with a `ExpSharing` node along with the stable name of the original `Exp`
-  node it was under.  * If we encounter an `Exp` node we have seen before we replace it with a
-  `VarSharing` node and increment the count in the occurrence map.
-
-Expression `fib 4` produces a tree like this:
-
-**In the final version of this blog post try produce the graphs all at once so that the stable
-  names are all the same**
-
-![`fib 4` after phase 1](/static/sharing-recovery/images/fib_4_after_phase_1.jpg)
-
-In this figure we show the stable name of the `Exp` node that each `ExpSharing` replaced. (This
-information is stored in each `ExpSharing` node; see the definition above. **LINK ME**.) The
-numbers after the `VarSharing` nodes refer to these stable names. The idea behind them is that
-they stand in place of the `ExpSharing` node containing the particular stable name of an `Exp`
-node.
-
-### Phase 2
-
-Phase 2 of the algorithm is a bottom-up traversal of the tree. The occurrence map from phase 1
-is an input into phase 2. As we move up the tree we keep track of how many times we have seen
-the stable names stored in `ExpSharing` nodes. When we have seen it as many times as its count
-in the occurrence map we insert a `LetSharing` node whose body is a new `VarSharing` node and
-whose bound expression is the expression so far.
-
-**THERE IS AN OPPORTUNITY HERE FOR SOME FAIRLY FORMAL DEFINITIONS**
-
-For instance, in figure **LINK** the `ExpSharing` nodes with `Exp` stable names $26$ **FIXME**
-and $25$ **FIXME** will become the bound expressions of let-nodes. Let's use the abbreviation
-that $ES_n$ (for some n) refers to `ExpSharing` node with `Exp` stable name $n$ and $VS_n$ for
-the `VarSharing` node standing in place of $ES_n$.  Now consider the left branch of the tree
-and travel up from the leaves, stopping at each `ExpSharing` or `VarSharing` node. At $ES_{26}$
-and $VS_{26}$ we have seen stable name $26$ once. Continue travelling upwards to
-$ES_{25}$. Here we have seen stable name $26$ twice. But it's occurrence count in the entire
-AST is 3 so this is still not enough. Only when we reach $ES_{24}$ have we seen it 3
-times. This is the point to insert the `LetSharing` node (i.e. the let-node) with bound
-expression equal to the subtree rooted at $ES_{26}$. Incidentally this is also the place to
-insert another `LetSharing` node whose bound expression is the subtree rooted at
-$ES_{25}$. Note that this bound expression depends on the bound expression of $LS_{25}$ so
-getting the order right is important.
-
-In fact, the description given so far is not the full story. It's a little more complicated
-than that.  You cannot necessarily insert a let-node when you have seen a stable name as many
-times as its occurrence count. This is because the bound expression of that let-node may
-contain `VarSharing` nodes for which there are no let-nodes yet inserted. You actually need to
-maintain dependencies between bound expressions and the let-nodes they depend on.
-
-**YOU HAVE NOT YET MENTIONED THE REPLACEMENT OF EXPSHARING WITH VARSHARING NODES**
-
-**TODO**
-
-## The algorithm in more detail
+# The algorithm in more detail
 
 The AST after Phase 1 of the algorithm is an intermediate, ill-formed state. The job of Phase 2
 is to replace shared subtrees with let-variable-nodes and move them to become the bound
@@ -353,7 +42,7 @@ expression name of the root node of the tree.
 A dependency between two shared subtrees, $T_{1}$ and $T_{2}$, exists when $T_{1}$ contains a
 let-variable-node that references $T_{2}$.
 
-### Dependency groups and the `SharedNodes` data structure.
+## Dependency groups and the `SharedNodes` data structure.
 
 Dependencies between subtrees induce the notion of *dependency groups*. A dependency group is
 represented as a graph; the nodes are the stable expression names of the trees and the edges
@@ -365,8 +54,9 @@ of [`HashMap`][hashmap] and [`HashSet`][hashset] data structures from the
 because stable names can only be compared for equality (and hence have no `Ord` instance).
 
 ~~~{.haskell}
-data DepGroup = DepGroup { sharedNodeMap :: HashMap StableExpName (StableSharingExp, Int)
-                         , edges       :: HashMap StableExpName (HashSet StableExpName) }
+data DepGroup = DepGroup { depGroupRoot  :: StableSharingExp
+                         , sharedNodeMap :: HashMap StableExpName (StableSharingExp, Int)
+                         , edges         :: HashMap StableExpName (HashSet StableExpName) }
 ~~~
 
 The nodes of the graph are simply the keys of the `sharedNodeMap`: stable names. 
@@ -382,7 +72,7 @@ We maintain the invariant that all dependency groups within a shared nodes colle
 *independent*; they don't overlap. More formally, if $G_1$ and $G_2$ are dependency groups then
 $nodes(G_1) \cap nodes(G_2) = \varnothing$.
 
-### Joining *shared node collections*
+## Joining *shared node collections*
 
 Shared node collections are lists of dependency groups. Joining two shared node collections
 requires that we join the two lists of dependency groups somehow. Each of the dependency groups
@@ -415,7 +105,7 @@ SharedNodes us +++ SharedNodes vs = SharedNodes $ merge us vs
         overlap' (x:xs) ys = x `elem` ys || overlap' xs ys
 ~~~
 
-### Merging dependency groups
+## Merging dependency groups
 
 But what do we mean by merging a dependency group? Briefly, this means that we take the union
 of the nodes and the edges, ensuring that the sharing counts of nodes in both are summed
@@ -447,7 +137,7 @@ second dependency group into the first. If two values have the same key (i.e. st
 the new adjacency list is taken to be union of the two existing adjacency lists for that key in
 their respective dependency groups.
 
-## What happens as we go up the tree?
+# What happens as we go up the tree?
 
 If, and only if, the node we are currently examining (let's call it $N$):
 
@@ -500,7 +190,7 @@ depGroupInsertEdge src tgtSA dg = dg { edges = newEdges }
     newEdges = HashMap.insertWith HashSet.union srcSA (HashSet.singleton tgtSA) (edges dg)
 ~~~
 
-## Let's see an example
+# Let's see an example
 
 ~~~{.haskell}
 manyAdds :: Exp Integer
@@ -542,7 +232,7 @@ node `X` and it has a sharing count of `n`.
 
 Traversing bottom up. The order in which we will encounter nodes is F, G, D, E, B, C, A.
 
-### Tree F
+## Tree F
 
 **[FIXME: use occ(SN_x) in most places]**
 
@@ -552,7 +242,7 @@ We leave tree $F$ as it is since $occ(F) = 1$. Shared nodes are empty
 SharedNodes []
 ~~~
 
-### Tree G
+## Tree G
 
 We leave $G$ as it is since it's a `VarSharing` node. The shared nodes collection maps
 $4 \rightarrow (G, 1)$.
@@ -566,7 +256,7 @@ SharedNodes [DepGroup { depGroupRoot  = < G >
 **[FIXME: Put this text somewhere. We'll often say Tree X has occurrence count $n$. By this we mean that "the tree rooted at node
 X (of type `SharingExp a`) has a stable expression name $sn$, which maps to occurrence count $n$. We might write this as $occ(X) = n$ ]**
 
-### Tree D
+## Tree D
 
 Since $occ(D) = 2$, we replace it with node `VarSharing 3`. Call this tree $D'$.
 Joining shared nodes and merging dependency groups just gives us the same dependency group as
@@ -582,7 +272,7 @@ The AST now looks like:
 
 ![AST of `manyAdds` after replacing $D$ with $D'$](/static/sharing-recovery/images/example_2.png)
 
-### Tree E
+## Tree E
 
 Similar to tree $G$, $occ(E) = 2$ so we replace it with `VarSharing 4`. Call this tree $E'$. 
 
@@ -594,7 +284,7 @@ SharedNodes [DepGroup { depGroupRoot  = < E >
 
 ![AST of `manyAdds` after replacing $E$ with $E'$](/static/sharing-recovery/images/example_3.png)
 
-### Tree B
+## Tree B
 
 Now we get to an interesting part. Tree $B$ is not shared, but joining the shared nodes
 collections of the children gives us: 
@@ -619,7 +309,7 @@ Put another way, we would be constructing an expression like:
 
 `let v0 = 2 + v1 in let v1 = 1 in (v0 + v1) + v1`
 
-### Tree C
+## Tree C
 
 Similar to Tree G.
 
@@ -629,7 +319,7 @@ SharedNodes [DepGroup { depGroupRoot  = < C >
                       , edges         = < [] > }]
 ~~~
 
-### Tree A
+## Tree A
 
 Joining the shared nodes collection of tree **B** and tree **C** we get (noting that <code>D
 `pickNoneVar` C = D</code>):
@@ -653,7 +343,7 @@ We insert the let nodes, in the appropriate order, finally getting.
   - use different fonts in Haskell code for the trees. Requires modifications to Pandoc? Hope not.
 ]**
 
-## Looking under the lambdas
+# Looking under the lambdas
 
 Our representation of the simply typed lambda calculus with arithmetic uses Higher Order
 Abstract Syntax. How then do we recover sharing when it is, so to speak, "under a lambda"? The
@@ -767,16 +457,3 @@ The side effects of `makeOccurrenceMap`
 # In the next episode
 
 A proof of correctness.
-
-[shallow-embedding]: http://en.wiktionary.org/wiki/shallow_embedding
-[dsl-definitions]: http://martinfowler.com/bliki/DomainSpecificLanguage.html
-[target-language]: http://en.wikipedia.org/wiki/Target_language
-[deep-embedding]: http://en.wiktionary.org/wiki/deep_embedding
-[ast]: http://en.wikipedia.org/wiki/Abstract_syntax_tree
-[simply-typed-lambda-calculus]: http://en.wikipedia.org/wiki/Abstract_syntax_tree
-[adjacency-list]: http://en.wikipedia.org/wiki/Adjacency_list
-[cse]: http://en.wikipedia.org/wiki/Common_subexpression_elimination
-[loop-unwinding]: http://en.wikipedia.org/wiki/Loop_unwinding
-[hashmap]: http://hackage.haskell.org/packages/archive/unordered-containers/0.1.4.0/doc/html/Data-HashMap-Lazy.html
-[hashset]: http://hackage.haskell.org/packages/archive/unordered-containers/0.1.4.0/doc/html/Data-HashSet.html
-
