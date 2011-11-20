@@ -441,7 +441,7 @@ traversal (due to garbage collection), but this happens rarely in practice.
 
 # Why is `unsafePerformIO` safe?
 
-The side effects of `makeOccurrenceMap`
+The side effects of `makeOccurrenceMap` FIXME: Add explanation
 
 # What makes our sharing recovery different?
 

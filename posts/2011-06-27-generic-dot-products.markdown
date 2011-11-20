@@ -4,6 +4,9 @@ category: haskell
 tags: Haskell, type classes, dot product, matrix multiplication, program derivation
 ---
 
+[Companion slides](/static/files/generic-dot-products.pdf)
+
+
 This is the first in a series of posts about program derivation. In particular, I
 am attempting to derive a matrix multiplication algorithm that runs
 efficiently on parallel architectures such as GPUs.
@@ -184,13 +187,12 @@ tailVec :: Vec (S n) a -> Vec n a
 tailVec (Cons _ xs) = xs
 ~~~
 
-With can now define <code>zipWithVec</code>.
+With can now define <code>zipWithV</code>.
 
 ~~~{.haskell}
 zipWithV :: (a -> b -> c) -> Vec n a -> Vec n b -> Vec n c
 zipWithV f Nil Nil = Nil
-zipWithV f (Cons x xs) (Cons y ys) =
-  f x y `zipWithVec` f xs ys
+zipWithV f (Cons x xs) (Cons y ys) = f x y `Cons` zipWithV f xs ys
 ~~~
 
 Unfortunately, GHC's type checker does not detect that a case such as the
@@ -200,7 +202,7 @@ will warn that two patterns are missing in the definition above.)
 ~~~{.haskell}
 -- Although this pattern match is impossible GHC's type checker
 -- won't complain
-zipWithVec f (Cons x xs) Nil = {- something -} undefined
+zipWithV f (Cons x xs) Nil = {- something -} undefined
 ~~~
 
 ## Trees
@@ -250,7 +252,7 @@ by a <code>fold</code>. (It makes little difference whether its a left or right
 fold).
 
 Since <code>zipWith</code> is really just <code>liftA2</code> (found in module
-<code>Control.Applicative</code>) this leads us to the following definition:
+<code>Control.Applicative</code>) on the `ZipList` data structure. This leads us to the following definition:
 
 ~~~{.haskell}
 dot :: (Num a, Foldable f, Applicative f) => f a -> f a -> a
@@ -285,7 +287,7 @@ will be applied together.  How else would you define <code>pure</code> to make i
 arbitrary length lists <code>xs</code>?
 
 ~~~{.haskell}
-(+) <$> (pure 1) <*> (ZipList xs)</code>
+(+) <$> (pure 1) <*> (ZipList xs)
 ~~~
 
 The definition of <code>pure</code> is much more satisfying for vectors.
@@ -296,7 +298,7 @@ Obviously we want a similar definition for <code>pure</code> as for lists
 (<code>ZipList</code>). But we don't want to produce an infinite list, just one of the appropriate
 length.
 
-Definining the <code>Applicative</code> instance for vectors leads us to an interesting observation
+Defining the <code>Applicative</code> instance for vectors leads us to an interesting observation
 which holds true in general. For any data structure which encodes its own shape:
 
 1. You need one instance of <code>Applicative</code> for each constructor of the data type.
@@ -341,7 +343,7 @@ it mentions the "unpleasant property of returning infinite tree[s]"; the same pr
 lists!
 
 
-With shape-encode trees this is not a problem. Function <code>pure</code>
+With shape-encoded trees this is not a problem. Function <code>pure</code>
 produces a tree of the appropriate shape. Also, note how the head of the second instance mirrors the
 definition of the <code>Branch</code> constructor (:: Tree m a -> Tree n a -> Tree (m,n) a)
 
@@ -395,3 +397,8 @@ dot = dotGen (Product, getProduct) (Sum, getSum)
 In my next post we will consider *generic matrix multiplication*. This operation is defined over
 arbitrary collections of collections of numbers and, naturally, makes use of our generic dot
 product. Until then, adios.
+
+# Slides
+
+On 17 Nov 2011 I gave a talk at [fp-syd](http://fp-syd.ouroborus.net/) about this work. You can find the slides [here](/static/files/generic-dot-products.pdf)
+

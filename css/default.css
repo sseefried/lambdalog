@@ -314,6 +314,9 @@ pre.sourceCode span.re { }
 pre.sourceCode span.er { color: red; font-weight: bold; }
 
 /* Disqus */
+#disqus_thread {
+  width: 80%;
+}
 #dsq-content h3 { font-size: 14pt; font-weight: bold;}
 
 .figure {

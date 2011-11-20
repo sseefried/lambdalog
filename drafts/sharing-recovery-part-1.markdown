@@ -32,12 +32,11 @@ by distinguishing two ways one can implement domain specific languages. A DSL ca
   the target language are instances of a data structure in the host language (usually an
   [abstract syntax tree][ast] or AST). The terms are constructed using various helper functions
   and are interpreted or compiled. This differs from the shallow embedding case because one must
-  write the interpreter/compiler and does not gain the benefit of reusing the host language's
-  compiler.
+  write the interpreter/compiler and does not gain the benefit of reusing the host language's compiler.
 
 A not immediately obvious problem that occurs when one implements a deeply embedded DSL is that
 one can easily lose the *term sharing* implicitly present in the target language. I'll
-demonstrate this with an example. Say our target language is the [simply typed lambda
+demonstrate this with an example. Say our target language is the simply typed lambda
 [calculus][simply-typed-lambda-calculus] with arithmetic. A program in this language might look
 something like:
 
@@ -151,7 +150,9 @@ instance NumElt Float
 ### Values with function types vs. primitive types
 
 Although functions are first class citizens in the the simply typed lambda calculus with
-arithmetic, we distinguish them from values with primitive types using two different data types. This ensures that functions are the only terms that can be applied to other values. In other words, it's a nice way of ensuring well-formed terms using Haskell's type system.
+arithmetic, we distinguish them from values with primitive types by defining a separate data
+type for them. This ensures that functions are the only terms that can be applied to other
+values. You can also look at it is as a nice way of ensuring well-formed terms using Haskell's type system.
 
 ### Pre-recursive data types
 
@@ -322,6 +323,7 @@ In [part 2][part-2] we will look at the algorithm in more detail.
 
 [part-2]: drafts/sharing-recovery-part-2.html
 [hudak-paper]: http://portal.acm.org/citation.cfm?id=242477
+[accelerate]: http://www.cse.unsw.edu.au/~chak/project/accelerate/
 [my-paper]: http://www.springerlink.com/content/5fcgra65yy0c9df5/
 [shallow-embedding]: http://en.wiktionary.org/wiki/shallow_embedding
 [dsl-definitions]: http://martinfowler.com/bliki/DomainSpecificLanguage.html

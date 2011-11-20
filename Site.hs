@@ -101,6 +101,8 @@ main = hakyll $ do
 
     -- Compile images
     compileImages "static/sharing-recovery/images/*"
+    -- Compile files
+    match "static/files/*" (route idRoute >> compile copyFileCompiler)
 
   where
     renderTagCloud' :: Compiler (Tags String) String
