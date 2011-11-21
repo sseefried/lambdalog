@@ -1,0 +1,100 @@
+Hi Conal, 
+
+Thank you so much for your insightful and detailed comments. First I'll answer some of your questions and then fire off a few of my own.
+
+Slide construction
+~~~~~~~~~~~~~~~~~~
+
+You asked me about how I created my slides. Unfortunately, the slides were just hand crafted using Keynote. It would be great if they could be generated from a nice mark-up language but that's not what I did in this case.
+
+Where did I get the idea for shapes? 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+What can I say about the idea for shapes? I can only chalk it up to insight. Once I'd sketched out what a dot product on trees did the idea just appeared, almost fully formed, in my mind. It was no doubt informed by all the type-level programming I'd observed before.
+
+On the failure of GHC to recognise completeness of definitions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You also asked me about whether I knew anything about the failure of GHC to realise the completeness of definitions. Unfortunately, I don't know anything about the status of the issue or whether SPJ considers it to be a bug. I didn't read about this failure anywhere. I just noticed it while I was developing this idea.
+
+Phantom types vs. GADTs
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Thanks for your comment about phantom types. I agree with your definition and removed it from my slides.
+
+Fixing a typo
+~~~~~~~~~~~~~
+
+I've corrected the typo "Denotation" -> "Denotational" in the slides too.
+
+Unicode in your email to me
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+I noticed you wrote your email in unicode. Do you use any tools to make this easier? I've always found inserting unicode characters to be a real pain.
+
+Data kinds
+~~~~~~~~~~
+
+I'd never heard of auto-promotion and data kinds before but I read through the note you linked to.
+
+In the definition below I find it really strange that you can have `Vec ()` appear in the position where a type parameter would normally go. Is that what is allowed by data kinds? 
+
+data Vec (Vec ()) a where
+  Nil  ∷ a → Vec (Vec ()) a
+  Cons ∷ a → Vec n a → Vec (Cons () n) a
+  
+Also, should the type of Nil not be the following? 
+
+Nil  ∷ a → Vec Nil a
+  
+Also, without auto-promotion is it possible to write your own data kinds?
+
+With data kinds I could imagine that you could define regular non-shaped lists and then write:
+
+data List a  = NilL | ConsL a (List a)
+
+data Vec :: * -> List () -> * where
+  Nil  :: a -> Vec NilL a
+  Cons :: a -> Vec n a -> Vec (ConsL () n) a
+  
+but I don't know how you could use Vec constructors Cons and Nil within its own definition. Is that what you were trying to do above? I'm a little confused.  
+
+Natural Applicative instance for leaf trees
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You also mentioned that there is a natural applicative instance for leaf trees which is like the
+applicative instance for leaf trees. Cool! Just to make sure I've tried to provide a definition for
+it myself. Can you tell me if this is correct? 
+
+instance Applicative Tree where
+  pure a            = Leaf a
+  Leaf f     <*> xs = fmap f xs
+  Branch s t <*> xs = Branch (s <*> xs) (t <*> xs)
+  
+I understand that you can always create an Applicative instance from a monad by defining.
+
+pure = return
+<*>  = ap
+
+But is there a standard Monad instance for data types like Tree? Do you think you could point me to the literature on this (if there is any)?
+
+The "IsNat" style
+~~~~~~~~~~~~~~~~~
+
+I had a good look through type-unary to understand your style. 
+
+Was the idea to place into this class a minimal number of function definitions that would be sufficient to implement any other functions that must satisfy the "IsNat n" constraint? I ask this because the methods within `class IsNat` don't seem to be all that related. e.g. `pureV` and `peekV` don't seem all that related to me.
+
+Clarification on what you mean by sums
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+My (limited) understanding of types is that you have sum types and product types and can combine them. `Pair` is a product type, `Either` is a sum type.
+
+Is the reason that you say they're "disjoint" because, for instance, `Vec Z` which is constructed with the `Nil` constructor is a different type to `Vec (S n)` (for some n) which is constructed with the `Cons` constructor (and similarly for trees)?
+
+If so, then I think this is very nicely illustrated by the separate instances for `Applicative`, even if this leads to onerous class constraints.
+
+Further work
+~~~~~~~~~~~~
+
+Thanks for your encouragement at the end of your email. Peter Thiemann is visiting UNSW at the moment and after my talk he asked me what the identity matrix would look like for a "tree of trees" I think I've come up with an answer and even a fairly elegant implementation but I'm still refining it. It should appear in the next blog post.
