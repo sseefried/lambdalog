@@ -138,7 +138,7 @@ function <code>f</code> to it and the <code>Leaf</code> argument.
 Even if there is a definition that makes reasonable sense can we say whether it's possible to
 provide a <code>zipWith</code>-like definition for an arbitrary data structure?
 
-An alternative is to modify our data structures to contain phantom types that
+An alternative is to modify our data structures to contain types that
 represent the *shape* of the data structure. We can then define <code>dot</code>
 such that it must take two arguments of exactly the same shape.
 
@@ -157,8 +157,7 @@ First, we add some essentials to the top of our module.
 ~~~
 
 Now we define two new data types, <code>Z</code> and <code>S</code>, representing [Peano
-numbers](http://en.wikipedia.org/wiki/Peano_axioms). Both data types are empty since they will only
-be used as phantom types.
+numbers](http://en.wikipedia.org/wiki/Peano_axioms). Both data types are empty since we will never be using their values.
 
 ~~~{.haskell}
 data Z
@@ -400,5 +399,5 @@ product. Until then, adios.
 
 # Slides
 
-On 17 Nov 2011 I gave a talk at [fp-syd](http://fp-syd.ouroborus.net/) about this work. You can find the slides [here](/static/files/generic-dot-products.pdf)
+On 17 Nov 2011 I gave a talk at [fp-syd](http://fp-syd.ouroborus.net/) about this work. You can find the slides [here](/static/files/generic-dot-products.pdf).
 
