@@ -1,4 +1,4 @@
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE GADTs, ScopedTypeVariables, RankNTypes, FlexibleContexts #-}
 module Exp where
 
 data Exp a where

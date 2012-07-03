@@ -10,7 +10,7 @@ You asked me about how I created my slides. Unfortunately, the slides were just 
 Where did I get the idea for shapes? 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-What can I say about the idea for shapes? I can only chalk it up to insight. Once I'd sketched out what a dot product on trees did the idea just appeared, almost fully formed, in my mind. It was no doubt informed by all the type-level programming I'd observed before.
+What can I say about the idea for shapes? I can only chalk it up to insight. Once I'd sketched out what a dot product on trees was the idea just appeared, almost fully formed, in my mind. It was no doubt informed by all the type-level programming I'd done before.
 
 On the failure of GHC to recognise completeness of definitions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -94,7 +94,59 @@ Is the reason that you say they're "disjoint" because, for instance, `Vec Z` whi
 
 If so, then I think this is very nicely illustrated by the separate instances for `Applicative`, even if this leads to onerous class constraints.
 
+In fact, something I mucked about with (but is not in the slides) is using the encoding/decoding trick you used in your posts on deriving efficient parallel scans. This is the one where you translate from a data structure to data types made up of `Unit`, `Id`, `:*:` and `:+:`.
+
+The interesting thing is that because the types are "disjoint" (i.e. Vec Z is not the same as Vec (S n)) you never saw `:+:` appear in any of the instances. Here's an example:
+
+instance EncodeF (Vec Z) where
+  type Enc (Vec Z) = Unit
+  encode Nil  = Unit
+  decode Unit = Nil
+
+instance Nat n => EncodeF (Vec (S n)) where
+  type Enc (Vec (S n)) = (Id :*: Vec n)
+  encode (Cons x xs) = Id x :*: xs
+  decode = aux
+    where
+      aux :: (Id :*: Vec n) a -> Vec (S n) a
+      aux (Id x :*: xs) = Cons x xs
+      
+See! No use of `:+:`!
+
 Further work
 ~~~~~~~~~~~~
 
-Thanks for your encouragement at the end of your email. Peter Thiemann is visiting UNSW at the moment and after my talk he asked me what the identity matrix would look like for a "tree of trees" I think I've come up with an answer and even a fairly elegant implementation but I'm still refining it. It should appear in the next blog post.
+Thanks for your encouragement at the end of your email. Peter Thiemann is visiting UNSW at the moment and after my talk he asked me what the identity matrix would look like for a "tree of trees" I've come up with an answer and it's very elegant.
+
+----
+
+instance Identity (Vec Z) where
+  identity = Nil
+
+instance Identity (Vec n) => Identity (Vec (S n)) where
+  identity = (1 `Cons` pure 0) `Cons` fmap (0 `Cons`) identity
+
+instance Identity (Tree ()) where
+  identity = Leaf (Leaf 1)
+
+instance (Identity (Tree m), Identity (Tree n)) => Identity (Tree (m,n)) where
+  identity = Branch (fmap (`Branch` pure 0) identity) (fmap (pure 0 `Branch`) identity)
+  
+----
+
+The underlying pattern is even nicer when you look at the instances for `Unit`, `Id` and `:*:`
+
+----
+instance (Identity f, Identity g) => Identity (f :*: g) where
+  identity = fmap (:*: pure 0) identity :*: fmap (pure 0 :*:) identity
+
+instance Identity Unit where
+  identity = Unit
+
+instance Identity Id where
+  identity = Id (Id 1)
+----
+
+I will extend this definition to any number field soon. Insisting on 0 as your annihilator and 1 as your identity is a little too restrictive methinks.
+
+Sean

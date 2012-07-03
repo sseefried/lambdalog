@@ -1,7 +1,7 @@
 object FailedExp {
 
   abstract class Exp[A] {
-    def eval = this match {
+    def eval: A = this match {
       case LitInt(i)       => i
       case LitBool(b)      => b
       case Add(e1, e2)     => e1.eval + e2.eval
