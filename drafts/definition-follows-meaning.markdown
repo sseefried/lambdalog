@@ -29,23 +29,20 @@ class morphisms provide an extra level of assurance that we have found suitable 
 
 The genesis of the type class morphism principle came up in Conal's work on functional reactive
 programing. He wanted users of the library to think of the `Behaviour` type as being a function of
-type \<insert type here\>. Put another way, the "meaning" of `Behaviour` was functions. Conal became
+type `Time -> a`. Put another way, the "meaning" of `Behaviour` was functions. Conal became
 concerned that the instances he'd defined on `Behaviour` might not match up with the instances of
-the same type classes on functions, so he decided to check. To his delight they were the same but he
-recognised a general principle: the type class instances for the meaning of a data type could be
-used to inform the type classes instances one wrote for the data type itself. Put succinctly the
-principle is: *The instance's meanings should follow meaning's instances*
-
-FIXME: Link to the blog post.
+the same type classes on functions, so he decided to check. To his delight they were the same. Thus
+a general general principle was born: the type class instances for the meaning of a data type could
+be used to inform the type classes instances one wrote for the data type itself. Put succinctly the
+principle is: *The instance's meanings should follow meaning's instances*. The original post can be
+found [here](http://lambdalog.seanseefried.com/drafts/definition-follows-meaning.html]).
 
 ## Uniform pairs are functions on `Bool`s
 
 So, what is a suitable meaning for the uniform pair? Well, it turns out that there is an interesting
 isomorphism between data structures and functions. The full details are beyond the scope of this
-post (FIXME: research and link to it).
-
-However, it's not too much of a stretch of the imagination to think of
-a uniform pair of things as a function from booleans to things. i.e.
+post. However, it's not too much of a stretch of the imagination to think of a uniform pair of
+things as a function from booleans to things. i.e.
 
 ~~~{.haskell}
 ⟦⋅⟧ :: Pair a ⟶ (Bool ⟶ a)
@@ -117,6 +114,7 @@ The functor morphism is equivalent to a *natural transformation* in category the
 ~~~{.haskell}
 ⟦ fmap f m ⟧ ≣ fmap f ⟦ m ⟧
 ~~~
+
 ## The `Applicative` morphism
 
 ~~~{.haskell}
@@ -141,7 +139,7 @@ or in terms of bind:
 
 The wonderful thing about these morphisms is that the ensure that if the laws (e.g. Monad laws) hold
 for the meaning of a data type then they will also hold for the data type itself. Conal puts this
-nicely: "the laws come if not for free then at least already paid for."
+nicely: the laws come if not "for free" then at least "already paid for".
 
 I'll demonstrate preservation of laws for the Applicative type class and leave the others an
 exercise.
