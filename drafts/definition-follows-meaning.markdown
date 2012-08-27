@@ -221,6 +221,7 @@ With that out of the way we are now almost ready to derive instance methods for 
 we define a function that will simplify some of the equational reasoning to come.
 
 ~~~{.haskell}
+cond :: a ⟶ a ⟶ Bool ⟶ a
 cond e t c = if c then t else e
 ~~~
 
@@ -257,7 +258,7 @@ Here are a couple of properties of `cond` that we will use later.
 ## Constant
 ~~~{.haskell}
     cond a a
-= {- Defintion of cond -}
+= {- Definition of cond -}
     \c → if c then a else a
 = {- Property of if-expression -}
     \c → a
@@ -283,11 +284,11 @@ the only ones. They are merely *sufficient* not *necessary*.
 ≣ {- functor morphism -}
    fmap f ⟦ Pair a b ⟧
 ≣ {- meaning of Pair -}
-   fmap f (λx → if x then a else b)
-≣ {- Definition of fmap for (→) r -}
-   f ∘ (λx → if x then a else b)
-≣ {- distribute f over if expression -}
-   λx → if x then f a else f b
+   fmap f (cond a b)
+≣ {- fmap is composition for functions -}
+   f ∘ cond a b
+≣ {- "Composition" law of cond -}
+   cond (f a) (f b)
 ≣ {- Meaning of Pair }
    ⟦ Pair (f a) (f b) ⟧
 ~~~
@@ -309,9 +310,7 @@ instance Functor (Pair a) where
    pure a
 ≣ {- pure on (→) r -}
    const a
-≣ {- Definition of const -}
-   λ_ → a
-≣ {- Expand to if equivalent if-expression -}
+≣ {- "Constant" law of cond -}
    cond a a
 ≣ {- Meaning of Pair -}
    ⟦ Pair a a ⟧
@@ -327,12 +326,36 @@ instance Functor (Pair a) where
    λx → ⟦ Pair fa fb ⟧ x (⟦ Pair a b ⟧ x)
 ≣ {- Meaning of Pair -}
    λx → cond fa fb x (cond a b x)
-≣ {- Defintion of cond -}
-   λx → (if x then fb else fa) (if x then b else a)
-≣ {- if `x = True` then we get `fb b` otherwise `fa a` -}
-   λx → if x then (fb b) else (fa a)
+~~~
+
+Now we perform a case analysis.
+
+#### Case `x ≣ True`
+
+~~~{.haskell}
+   cond fa fb True (cond a b True)
+≣ {- cond applied to True -}
+   fb (cond a b True)
+≣ {- cond applied to True -}
+   fb b
+~~~
+
+#### Case `x ≣ False`
+
+~~~{.haskell}
+   cond fa fb False (cond a b False)
+≣ {- cond applied to False -}
+   fa (cond a b False)
+≣ {- cond applied to False -}
+   fa a
+~~~
+
+Thus, in the end we get:
+
+~~~{.haskell}
+   cond (fa a) (fb b)
 ≣ {- Meaning of Pair -}
-   ⟦ Pair (fa a) (fb b) ⟧
+  ⟦ Pair (fa a) (fb b) ⟧
 ~~~
 
 Therefore a sufficient implementation is:
@@ -359,15 +382,33 @@ instance Applicative (Pair a) where
   join (cond (cond a aʹ) (cond b bʹ))
 ≣ {- join on (⟶) r -}
   λr → (cond (cond a aʹ) (cond b bʹ)) r r
-≣ {- Definition of cond -}
-  λr → (if r then cond b bʹ else cond a aʹ) r
-≣ {- Definition of cond -}
-  λr → if r then (cond b bʹ) r else (cond a aʹ) r
-≣ {- Specialise values of r inside if-expression -}
-  λr → if r then (cond b bʹ) True else (cond a aʹ) False
-≣ {- Application of cond to Boolean values -}
-  λr → if r then bʹ else a
-≣ {- Definition of cond -}
+~~~
+
+Now for some case analysis on `r`.
+
+#### Case `r ≣ True`
+
+~~~{.haskell}
+   cond (cond a aʹ) (cond b bʹ)) True True
+≣ {- cond applied to True -}
+   cond b bʹ True
+≣ {- cond applied to True -}
+   bʹ
+~~~
+
+#### Case `r ≣ False`
+
+~~~{.haskell}
+   cond (cond a aʹ) (cond b bʹ)) False False
+≣ {- cond applied to False -}
+   cond a aʹ False
+≣ {- cond applied to False -}
+   a
+~~~
+
+Thus we get
+
+~~~{.haskell}
   cond a bʹ
 ≣ {- Meaning of Pair -}
   ⟦ Pair a bʹ⟧
@@ -398,14 +439,16 @@ join f ≣ λr → f r r
 
 In general, this function throws away almost all the information of function `f :: r ⟶ r ⟶ a`.
 Let's draw the values of `f` as a two dimensional array, where `r<n>` is the `n`th value of the type
-`r`.
+`r` and `a<n><m>` is the value obtained by applying `f` to `r<n>` and `r<m>`.
 
 ~~~
-       r0   r1  r2 ⋯
+f :: r ⟶ r ⟶ a
 
- r0   r00  r01 r02
- r1   r10  r11 r12
- r2   r20  r21 r22
+ f    r0  r1  r2 ⋯
+
+r0   a00 a01 a02
+r1   a10 a11 a12
+r2   a20 a21 a22
   ⋮                ⋱
 ~~~
 
