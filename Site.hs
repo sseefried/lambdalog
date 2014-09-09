@@ -1,10 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import Prelude hiding (id)
-import Control.Arrow ((>>>), (***), arr)
-import Control.Category (id)
-import Data.Monoid (mempty, mconcat)
 import Text.Pandoc (writerHTMLMathMethod, HTMLMathMethod(..))
 import Data.Monoid
 import Hakyll
@@ -12,6 +8,7 @@ import Hakyll
 -- friends
 import Lambdalog.Util
 
+lambdalogItemCompiler :: Compiler (Item String)
 lambdalogItemCompiler = pandocCompilerWith defaultHakyllReaderOptions opts
   where
     opts = defaultHakyllWriterOptions {
@@ -36,14 +33,14 @@ renderPosts = renderPostsGen False "posts/*"
 renderDrafts :: Tags -> Rules ()
 renderDrafts = renderPostsGen True "drafts/*"
 
-renderPostsList :: Bool -> Tags -> Pattern -> String -> String -> Rules ()
-renderPostsList isDraft tags glob page title = do
+renderPostsList :: Bool -> Tags -> Pattern -> String -> Rules ()
+renderPostsList isDraft tags glob page  = do
   create [fromFilePath page] $ do
     route idRoute
     compile $ do
-      posts <- recentFirst =<< (loadAllSnapshots "posts/*" "postBody" :: Compiler [Item String])
+      posts <- recentFirst =<< (loadAllSnapshots glob "postBody" :: Compiler [Item String])
       let ctx = listField "posts" (postContext isDraft tags) (return posts)
-      makeItem "" -- this means that [page] doesn't need to exist in the source repo.
+      makeItem ("" :: String) -- this means that [page] doesn't need to exist in the source repo.
         >>= loadAndApplyTemplate "templates/posts.html" ctx
         >>= loadAndApplyTemplate "templates/default.html" defaultContext
         >>= relativizeUrls
@@ -87,8 +84,8 @@ main = hakyll $ do
   renderPosts tags
   renderDrafts tags
   renderTagsPages tags
-  renderPostsList False tags "posts/*"  "posts.html"  "All posts"
-  renderPostsList True tags "drafts/*" "drafts.html" "All drafts"
+  renderPostsList False tags "posts/*"  "posts.html"
+  renderPostsList True tags "drafts/*" "drafts.html"
   -- Render RSS feed
   create ["rss.xml"] $ do
     route idRoute

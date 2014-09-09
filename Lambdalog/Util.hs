@@ -5,10 +5,8 @@ import Data.List (intercalate)
 import Data.Maybe (fromMaybe)
 import Data.Time.Clock (UTCTime)
 import Data.Time.Format (parseTime, formatTime)
-import System.FilePath (takeFileName)
 import System.FilePath.Posix
-import System.Locale (TimeLocale, defaultTimeLocale)
-import Control.Applicative
+import System.Locale (defaultTimeLocale)
 import Data.Monoid
 import qualified Data.Map as M
 
@@ -68,4 +66,4 @@ disqusIdGen :: String -> Context String
 disqusIdGen prefix = field "disqusId" $ \item -> do
   let path = toFilePath . itemIdentifier $ item
   metadata <- getMetadata (itemIdentifier item)
-  return $ fromMaybe (take 80 . takeBaseName $ path) $ M.lookup "title" metadata
+  return $ prefix ++ (fromMaybe (take 80 . takeBaseName $ path) $ M.lookup "title" metadata)
