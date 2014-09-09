@@ -10,6 +10,7 @@ import System.FilePath.Posix
 import System.Locale (TimeLocale, defaultTimeLocale)
 import Control.Applicative
 import Data.Monoid
+import qualified Data.Map as M
 
 
 dayFieldContext :: Context a
@@ -30,13 +31,13 @@ yearFieldContext = field "year" $ \item -> do
 dateContext :: Context a
 dateContext = mconcat [dayFieldContext, monthFieldContext, yearFieldContext]
 
-postContext :: Tags -> Context String
-postContext tags =
+postContext :: Bool -> Tags -> Context String
+postContext draft tags =
   mconcat [ tagsField "prettytags" tags
           , dateContext
           , dateField "date" "%d %b %Y"
           -- FIXME: set this properly
-          , field "disqusId" $ const . return $ "notareallydisqusId"
+          , if draft then draftDisqusIdContext else disqusIdContext
           , defaultContext ]
 
 splitDate :: String -> (String, String, String)
@@ -57,16 +58,14 @@ feedCtx = mconcat
     , defaultContext
     ]
 
---setDisqusId ::  Item String -> Item String
---setDisqusId = setDisqusIdGen ""
+disqusIdContext ::  Context String
+disqusIdContext = disqusIdGen ""
 
---setDraftDisqusId :: Item String -> Item String
---setDraftDisqusId = setDisqusIdGen "draft-"
+draftDisqusIdContext :: Context String
+draftDisqusIdContext = disqusIdGen "draft-"
 
---setDisqusIdGen :: String -> Item String -> Item String
---setDisqusIdGen prefix page = setField key disqusId page
---  where
---    key = "disqusId"
---    path = getField "path" page
---    disqusId :: String
---    disqusId = prefix ++ (fromMaybe (take 80 . takeBaseName $ path) $ getFieldMaybe key page)
+disqusIdGen :: String -> Context String
+disqusIdGen prefix = field "disqusId" $ \item -> do
+  let path = toFilePath . itemIdentifier $ item
+  metadata <- getMetadata (itemIdentifier item)
+  return $ fromMaybe (take 80 . takeBaseName $ path) $ M.lookup "title" metadata
