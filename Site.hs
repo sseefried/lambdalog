@@ -6,54 +6,117 @@ import Control.Arrow ((>>>), (***), arr)
 import Control.Category (id)
 import Data.Monoid (mempty, mconcat)
 import Text.Pandoc (writerHTMLMathMethod, HTMLMathMethod(..))
+import Data.Monoid
 import Hakyll
 
 -- friends
 import Lambdalog.Util
 
-lambdalogPageCompiler = pageCompilerWithPandoc defaultHakyllParserState opts id
+lambdalogItemCompiler = pandocCompilerWith defaultHakyllReaderOptions opts
   where
     opts = defaultHakyllWriterOptions {
       writerHTMLMathMethod = MathJax "http://cdn.mathjax.org/mathjax/latest/MathJax.js" }
 
+renderPostsGen :: Bool -> Pattern -> Tags -> Rules ()
+renderPostsGen isDraft glob tags = do
+  -- Render posts
+  match glob $ do
+    route   $ setExtension ".html"
+    compile $ lambdalogItemCompiler
+      -- this snapshot is vital when we go to render the 3 latest posts in index.html
+      -- see use of [loadAllSnapshots]
+      >>= saveSnapshot "postBody"
+      >>= loadAndApplyTemplate "templates/post.html"    (postContext tags)
+      >>= loadAndApplyTemplate "templates/default.html" defaultContext
+      >>= relativizeUrls
 
-renderPostsGen :: Bool -> Pattern a -> RulesM (Pattern (Page String))
-renderPostsGen isDraft glob = do
-    -- Render posts
-    match glob $ do
-        route   $ setExtension ".html"
-        compile $ lambdalogPageCompiler
-            >>> arr (renderDateFields ("%e", "%b", "%Y") ("1", "Jan", "2001"))
-            >>> renderTagsField "prettytags" (fromCapture "tags/*")
-            >>> arr (if isDraft then setDraftDisqusId else setDisqusId)
-            >>> arr (copyBodyToField "renderedPost")
-            >>> applyTemplateCompiler "templates/post.html"
-            >>> applyTemplateCompiler "templates/default.html"
-            >>> relativizeUrlsCompiler
-
-renderPosts :: RulesM (Pattern (Page String))
+renderPosts :: Tags -> Rules ()
 renderPosts = renderPostsGen False "posts/*"
 
-renderDrafts :: RulesM (Pattern (Page String)) 
+renderDrafts :: Tags -> Rules ()
 renderDrafts = renderPostsGen True "drafts/*"
 
+renderPostsList :: Tags -> Pattern -> String -> String -> Rules ()
+renderPostsList tags glob page title = do
+  create [fromFilePath page] $ do
+    route idRoute
+    compile $ do
+      posts <- recentFirst =<< (loadAllSnapshots "posts/*" "postBody" :: Compiler [Item String])
+      let ctx = listField "posts" (postContext tags) (return posts)
+      makeItem "" -- this means that [page] doesn't need to exist in the source repo.
+        >>= loadAndApplyTemplate "templates/posts.html" ctx
+        >>= loadAndApplyTemplate "templates/default.html" defaultContext
+        >>= relativizeUrls
 
-renderPostsList :: Pattern (Page String) -> String -> String -> RulesM (Identifier (Page String))
-renderPostsList glob pageName title = do
-    match (parseGlob pageName) $ route idRoute
-    create (parseIdentifier pageName) $ constA mempty
-        >>> arr (setField "title" title)
-        >>> requireAllA glob addPostList
-        >>> applyTemplateCompiler "templates/posts.html"
-        >>> applyTemplateCompiler "templates/default.html"
-        >>> relativizeUrlsCompiler
+renderTagsPages :: Tags -> Rules ()
+renderTagsPages tags = do
+  -- Create the tags pages. If you don't create these then the tags will not
+  -- appear in each of the posts.
+  tagsRules tags $ \tag pattern -> do
+    let title = "Posts tagged " ++ tag
+    -- Copied from posts, need to refactor
+    route idRoute
+    compile $ do
+      posts <- recentFirst =<< loadAll pattern
+      let ctx = constField "title" title <>
+                  listField "posts" (postContext tags) (return posts) <>
+                  constField "tag" tag <>
+                  defaultContext
+      makeItem ""
+          >>= loadAndApplyTemplate "templates/posts-with-tag.html" ctx
+          >>= loadAndApplyTemplate "templates/default.html" ctx
+          >>= relativizeUrls
 
-compileImages :: Pattern a -> RulesM (Pattern CopyFile)
+compileImages :: Pattern -> Rules ()
 compileImages glob = do
   match glob $ do
     route idRoute
     compile copyFileCompiler
 
+
+main :: IO ()
+main = hakyll $ do
+  -- Compress CSS
+  match "css/*" $ do
+      route   idRoute
+      compile compressCssCompiler
+  match "templates/*" $ compile templateCompiler
+  -- Compile images
+  compileImages "static/sharing-recovery/images/*"
+  tags <- buildTags "posts/*" (fromCapture "tags/*.html")
+  renderPosts tags
+  renderDrafts tags
+  renderTagsPages tags
+  renderPostsList tags "posts/*"  "posts.html"  "All posts"
+  renderPostsList tags "drafts/*" "drafts.html" "All drafts"
+  -- Render RSS feed
+  create ["rss.xml"] $ do
+    route idRoute
+    compile $ do
+      loadAllSnapshots "posts/*" "postBody"
+        >>= fmap (take 10) . recentFirst
+        >>= renderRss feedConfiguration feedCtx
+  match "index.html" $ do
+    route idRoute
+    compile $ do
+      posts <- fmap (take 3) . recentFirst =<< loadAllSnapshots "posts/*" "postBody"
+      let indexContext = listField "posts" (postContext tags) (return posts)
+      getResourceBody
+        >>= applyAsTemplate indexContext
+        >>= loadAndApplyTemplate "templates/default.html" defaultContext
+        >>= relativizeUrls
+
+feedConfiguration :: FeedConfiguration
+feedConfiguration = FeedConfiguration
+    { feedTitle       = "Lambdalog"
+    , feedDescription = "RSS feed for Lambdalog"
+    , feedAuthorName  = "Sean Seefried"
+    , feedAuthorEmail = "sean.seefried@gmail.com"
+    , feedRoot        = "http://lambdalog.seanseefried.com"
+    }
+
+
+{-
 
 main :: IO ()
 main = hakyll $ do
@@ -108,13 +171,13 @@ main = hakyll $ do
     renderTagCloud' :: Compiler (Tags String) String
     renderTagCloud' = renderTagCloud tagIdentifier 100 120
 
-    tagIdentifier :: String -> Identifier (Page String)
+    tagIdentifier :: String -> Identifier (Item String)
     tagIdentifier = fromCapture "tags/*"
 
 -- | Auxiliary compiler: generate a post list from a list of given posts, and
 -- add it to the current page under @$posts@
 --
-addPostList :: Compiler (Page String, [Page String]) (Page String)
+addPostList :: Compiler (Item String, [Item String]) (Item String)
 addPostList = setFieldA "posts" $
     arr (reverse . sortByBaseName)
         >>> require "templates/postbody.html" (\p t -> map (applyTemplate t) p)
@@ -122,8 +185,8 @@ addPostList = setFieldA "posts" $
         >>> arr pageBody
 
 makeTagList :: String
-            -> [Page String]
-            -> Compiler () (Page String)
+            -> [Item String]
+            -> Compiler () (Item String)
 makeTagList tag posts =
     constA (mempty, posts)
         >>> addPostList
@@ -131,10 +194,4 @@ makeTagList tag posts =
         >>> applyTemplateCompiler "templates/posts.html"
         >>> applyTemplateCompiler "templates/default.html"
 
-feedConfiguration :: FeedConfiguration
-feedConfiguration = FeedConfiguration
-    { feedTitle       = "Lambdalog"
-    , feedDescription = "RSS feed for Lambdalog"
-    , feedAuthorName  = "Sean Seefried"
-    , feedRoot        = "http://lambdalog.seanseefried.com"
-    }
+-}

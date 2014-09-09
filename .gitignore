@@ -5,3 +5,6 @@ _css
 _cache
 Site
 *~
+tags/
+.cabal-sandbox/
+cabal.sandbox.config
