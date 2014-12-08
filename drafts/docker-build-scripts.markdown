@@ -38,7 +38,7 @@ A union filesystem implements what is known as a
 that files and directories of separate file systems are layered on top of each other forming a
 single coherent file system. This is done in a hierarchical manner. If a file appears in two
 filesystems the one further up the hierarchy will be the one presented. (The version of the file
-further down the hierarchy is there, unchanged.)
+further down the hierarchy is there, unchanged, but invisible.)
 
 Docker calls each filesystem in the union mount a [layer](https://docs.docker.com/terms/layer).
 The upshot of using this technology is that it implements snapshots as a side effect.
@@ -87,12 +87,13 @@ many scriptlets that make up the build script [here](https://github.com/sseefrie
 If you <code>ADD</code> all the scriptlets too early in the <code>Dockerfile</code> you may run into the following
 problem: your script fails, you go back to modify the scriptlet and you run <code>docker build .</code>
 again. But you find that Docker starts building at the point where the scriptlets were first
-added! This wastes a lot of time and defeats the purpose of using Docker.
+added! This wastes a lot of time and defeats the purpose of using snapshots.
 
 The reason this happens is because of how Docker tracks its intermediate images (snapshots).
 As Docker steps through the <code>Dockerfile</code> it compares the current command with
 an intermediate image to see if there is a match. However, in the case of the <code>ADD</code>
-command the contents of the files being put into the image are also examined. If the files
+command the contents of the files being put into the image are also examined. This makes sense.
+If the files
 have changed with respect to an existing intermediate image Docker has no choice but to build a new
 image from that point onwards. There's just no way it can know that those changes don't affect
 the build. Even if they wouldn't it must be conservative.
@@ -141,7 +142,7 @@ run the build script from scratch to see if this change worked.
 
 ## Drawbacks
 
-The one major drawback to this approach is the the resulting image is larger than it needs to be.
+The one major drawback to this approach is that the resulting image is larger than it needs to be.
 This is especially true in my case because I remove a large number of files at the end.
 However, these files are still present in a lower layer filesystem in the union mount, so the
 entire image is larger than it needs to be by at least the size of the removed files.
@@ -156,7 +157,7 @@ The resulting image was as small as it could be.
 
 ## Conclusion
 
-I must stress again that the advantage of this approach is two-fold:
+The advantage of this approach is two-fold:
 
 * it keeps development time to a minimum. No longer do you have to sit through builds of
   sub-components that you already know succeed. You can focus on the bits that are still giving you
