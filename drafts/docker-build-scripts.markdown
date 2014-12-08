@@ -1,5 +1,5 @@
 ---
-title: Snapshotable file systems make build scripts easy
+title: Snapshots make build scripts easy
 category: tools
 tags: Docker,
 date: 2014-12-08
