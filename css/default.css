@@ -82,15 +82,32 @@ h1.blog-title, h1.blog-title a, h1.blog-title a:visited, h1.blog-title a:active 
 }
 
 h2 {
-  color: #222;
+  color: #282828;
   font-size: 1.2em;
   margin-bottom: .5em;
 }
 
 h3, h3 a, h3 a:visited, h3 a:active {
-  color: #222;
+  color: #303030;
   font-size: 1em;
 }
+
+h4, h4 a, h4 a:visited, h4 a:active {
+  color: #383838;
+  font-size: 1em;
+}
+
+h5, h5 a, h5 a:visited, h5 a:active {
+  color: #404040;
+  font-size: 1em;
+}
+
+h6, h6 a, h6 a:visited, h6 a:active {
+  color: #484848;
+  font-size: 1em;
+}
+
+
 
 /* Content container */
 #content {
@@ -321,5 +338,5 @@ pre.sourceCode span.er { color: red; font-weight: bold; }
 
 .figure {
   padding: 5px;
-  border: 1px solid #CCC;   
+  border: 1px solid #CCC;
 }
