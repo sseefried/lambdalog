@@ -2,6 +2,7 @@
 title: Generic dot products
 category: haskell
 tags: Haskell, type classes, dot product, matrix multiplication, program derivation
+date: 2014-01-01
 ---
 
 [Companion slides](/static/files/generic-dot-products.pdf)

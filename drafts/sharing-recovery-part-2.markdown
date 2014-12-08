@@ -2,6 +2,7 @@
 title: Sharing Recovery in deeply embedded DSLs &mdash; Part 2
 author: Sean Seefried
 tags: domain specific languages, deep embedding, sharing
+date: 2014-01-01
 ---
 
 # Introduction
@@ -59,7 +60,7 @@ data DepGroup = DepGroup { depGroupRoot  :: StableSharingExp
                          , edges         :: HashMap StableExpName (HashSet StableExpName) }
 ~~~
 
-The nodes of the graph are simply the keys of the `sharedNodeMap`: stable names. 
+The nodes of the graph are simply the keys of the `sharedNodeMap`: stable names.
 The values are pairs of the shared subtrees and currently observed count.
 
 The `SharedNodes` data structure is simply a list of dependency groups.
@@ -147,18 +148,18 @@ If, and only if, the node we are currently examining (let's call it $N$):
 then
 
 1. We replace the node with a `VarSharing` node.
-2. We create a `SharedNodes` structure containing one big dependency group by: 
-  * inserting into the `sharedNodeMap` the tree we just replaced and incrementing its 
-    count. (A node with the same stable expression name might already be there.)  
+2. We create a `SharedNodes` structure containing one big dependency group by:
+  * inserting into the `sharedNodeMap` the tree we just replaced and incrementing its
+    count. (A node with the same stable expression name might already be there.)
   * joining the all the child `SharedNodes` structures into one. Call this the
-    *children shared nodes collection* (CSNC) **FIMXE: CRAP DEFINITION** * merging all 
-    the dependency groups in the CSNC into one big dependency group.  This reflects the 
-    fact that the shared tree we have just replaced with a `VarSharing` node depends on all 
-    the other shared trees that were replaced by `VarSharing` nodes within it.  
-    **FIXME: AWKWARD BUT ON THE RIGHT TRACK** * inserting an edge from stable 
-    expression name of $N$ to stable expression names of the root nodes of all the 
+    *children shared nodes collection* (CSNC) **FIMXE: CRAP DEFINITION** * merging all
+    the dependency groups in the CSNC into one big dependency group.  This reflects the
+    fact that the shared tree we have just replaced with a `VarSharing` node depends on all
+    the other shared trees that were replaced by `VarSharing` nodes within it.
+    **FIXME: AWKWARD BUT ON THE RIGHT TRACK** * inserting an edge from stable
+    expression name of $N$ to stable expression names of the root nodes of all the
     child dependency groups.
-    
+
 The code to do this is here:
 
 ~~~{.haskell}
@@ -265,20 +266,20 @@ we got for node $G$. We then insert a new mapping $3 \rightarrow (D, 1)$ and an 
 ~~~{.haskell}
 SharedNodes [ DepGroup { depGroupRoot  = < D >
                        , sharedNodeMap = < [ 3 -> (D,1), 4 -> (G,1) ] >
-                       , edges         = < [ 3 -> 4 ] > }] 
+                       , edges         = < [ 3 -> 4 ] > }]
 ~~~
 
-The AST now looks like: 
+The AST now looks like:
 
 ![AST of `manyAdds` after replacing $D$ with $D'$](/static/sharing-recovery/images/example_2.png)
 
 ## Tree E
 
-Similar to tree $G$, $occ(E) = 2$ so we replace it with `VarSharing 4`. Call this tree $E'$. 
+Similar to tree $G$, $occ(E) = 2$ so we replace it with `VarSharing 4`. Call this tree $E'$.
 
 ~~~{.haskell}
 SharedNodes [DepGroup { depGroupRoot  = < E >
-                      , sharedNodeMap = < [ 4 -> (E,1)] > 
+                      , sharedNodeMap = < [ 4 -> (E,1)] >
                       , edges         = < [] > }]
 ~~~
 
@@ -287,7 +288,7 @@ SharedNodes [DepGroup { depGroupRoot  = < E >
 ## Tree B
 
 Now we get to an interesting part. Tree $B$ is not shared, but joining the shared nodes
-collections of the children gives us: 
+collections of the children gives us:
 
 ~~~{.haskell}
 SharedNodes [DepGroup { depGroupRoot  = < D >
@@ -393,7 +394,7 @@ the `TaggedSharingExp` constructor, yielding a value of type `SharingFun a`.
 
 The unique value, $i$, essentially acts as a variable name. We have converted from HOAS to an
 explicit, named, representation of lambda terms. Once sharing recovery has been done this can
-easily be converted back into a HOAS representation if desired. 
+easily be converted back into a HOAS representation if desired.
 
 **FIXME: Possibly cut**
 -------------

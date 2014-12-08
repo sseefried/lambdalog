@@ -2,6 +2,7 @@
 title: Definition follows meaning
 category: haskell
 tags: Haskell, type classes, type class morphisms
+date: 2014-01-01
 ---
 
 # Introduction

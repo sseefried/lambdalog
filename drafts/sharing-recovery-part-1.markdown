@@ -3,6 +3,7 @@ title: Sharing Recovery in deeply embedded DSLs &mdash; Part 1
 author: Sean Seefried
 tags: domain specific languages, deep embedding, sharing
 hours: 7.5
+date: 2014-01-01
 ---
 
 # Introduction
@@ -297,7 +298,7 @@ Here are some definitions to simplify the description:
 
 * a *stable expression name* is the stable name from the original AST that node of type `Exp a` had. These stable names are referred to by nodes constructed with the `ExpSharing` and `VarSharing` constructors.
 * we will use the short-hand $ES_{n}$ (for some $n$) to denote a node constructed with `ExpSharing` that references stable expression name $n$.
-* we will use the short-hand $VS_{n}$ to denote a node constructed with `VarSharing`  that 
+* we will use the short-hand $VS_{n}$ to denote a node constructed with `VarSharing`  that
 references stable expression name $n$.
 * will will use the short-hand $LS_{n}$ to denote a node constructed with `LetSharing` that binds a bound expression referred to by $VS_{n}$.
 * the *sharing count* is the number of times a particular stable name has been seen as we move progressively up the tree. Shorthand: $count(n) = c$ (for some stable name $n$ and sharing count $c$).
@@ -307,7 +308,7 @@ $ES_{4}$ will become the bound expressions of let-nodes. Now consider the left b
 tree and travel up from the leaves, stopping at each `ExpSharing` or `VarSharing` node. At
 $ES_{4}$ and $VS_{4}$ and  $count(4) = 1$ at each node. Continue travelling upwards to $ES_{2}$. Here $count(4) = 2$ but $occ(4) = 3$ so this is still not enough. Only when we reach $ES_{1}$ do we have $occ(4) = 3$. This is the
 point to insert the let-node (constructed with `LetSharing`) with bound expression equal to the
-subtree rooted at $ES_{4}$. Incidentally this is also the place to insert another let-node 
+subtree rooted at $ES_{4}$. Incidentally this is also the place to insert another let-node
 node whose bound expression is the subtree rooted at $ES_{2}$. Note that this bound expression
 depends on the bound expression of $LS_{4}$ so getting the order right is important.
 
@@ -342,8 +343,8 @@ In [part 2][part-2] we will look at the algorithm in more detail.
 
 [^generator]: However, just from the type alone it's not always possible to tell whether a
  program is a generator or not. The general rule is that a function is a generator if it
- creates an AST based on the value of a host language term (i.e. `Int` in this case). In 
- fact, we cannot actually write the fibonacci function in the simply type lambda calculus 
+ creates an AST based on the value of a host language term (i.e. `Int` in this case). In
+ fact, we cannot actually write the fibonacci function in the simply type lambda calculus
  since it does not
  contain the notion of recursion.
 [^tying-the-knot]: You can tell that this type ties the knot because `Exp` appears on the

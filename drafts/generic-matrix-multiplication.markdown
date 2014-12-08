@@ -2,10 +2,11 @@
 title: Generic matrix multiplication
 category: haskell
 tags: Haskell, type classes, dot product, matrix multiplication, program derivation
+date: 2013-01-01
 ---
 
 This post is a follow-up to my earlier post on [generic dot products](posts/2011-06-27-generic-dot-products.html). In it I introduced a `dot` function that
-would calculate the dot product on data structures with their *shape* encoded in their types. 
+would calculate the dot product on data structures with their *shape* encoded in their types.
 Given an arbitrary shaped data structure all that is necessary is to define `Functor`, `Applicative` and `Foldable` instances and one gets the ability to take the dot product of two values of the same shape for free.
 
 Today we'll build upon this work and define a function `mmult` that performs a generalised form of matrix multiplication.  But first we must define what we mean by a *generalised matrix*

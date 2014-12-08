@@ -1,10 +1,13 @@
 #!/bin/bash
 
-TGT="mco:/home/sseefried/domains/lambdalog.seanseefried.com/public"
-ghc-sandbox hakyll --make Site.hs -optl-Wl,-no_pie
+TGT="playspace:/home/sseefried/sites/lambdalog.seanseefried.com/public"
+# ghc-sandbox hakyll --make Site.hs -optl-Wl,-no_pie
+cabal install
+SITE=$(echo dist/dist-sandbox-*/build/Site/Site)
 [ $? -eq 0 ] || (exit 1)
 (cd static/sharing-recovery/graphviz; ./generate_pngs.sh)
-./Site clean
-./Site build
+
+$SITE clean
+$SITE build
 echo "Deploying to $TGT"
 rsync -avz _site/* "$TGT"
