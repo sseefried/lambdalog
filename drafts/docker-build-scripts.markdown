@@ -75,7 +75,7 @@ to keep the total time developing the script to a minimum. The build script can 
 
 The command <code>docker build</code> uses a file called <code>Dockerfile</code> containing a small
 vocabulary of *commands* to specify what actions should be performed in order to build an image.
-A complete reference can be found [here](https://docs.docker.com/reference/builder/). The mains
+A complete reference can be found [here](https://docs.docker.com/reference/builder/). The main
 ones used in the script are <code>WORKDIR</code>, <code>ADD</code>, and <code>RUN</code>. The
 <code>ADD</code> command is particularly useful because it allows you to add files *external* to
 the current Docker image into the image's filesystem before running them. You can see the
@@ -143,11 +143,12 @@ run the build script from scratch to see if this change worked.
 ## Drawbacks
 
 The one major drawback to this approach is the the resulting image is larger than it needs to be.
-This is especially true because I clean up a large number of files at the end by removing them.
+This is especially true in my case because I remove a large number of files at the end.
 However, these files are still present in a lower layer filesystem in the union mount, so the
 entire image is larger than it needs to be by at least the size of the removed files.
 
-However, there is a work-around. I did *not* publish this image to the [Docker Hub Registry](https://registry.hub.docker.com/). Instead, I:
+However, there is a work-around. I did *not* publish this image to the
+[Docker Hub Registry](https://registry.hub.docker.com/). Instead, I:
 
 * used <code>docker export</code> to export the contents as a tar archive.
 * created a *new* <code>Dockerfile</code> that simply added the contents of this tar archive.
