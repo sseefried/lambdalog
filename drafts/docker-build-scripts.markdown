@@ -7,11 +7,9 @@ date: 2014-12-08
 ## or, how Docker can relieve the pain of developing long running build scripts
 
 
-I think I've found a pretty compelling use case for Dockerfiles.
+I think I've found a pretty compelling use case for Docker.
 But before you think that this is yet another blog post parroting the virtues of
-Docker I'd like to make clear that this post is really
-about the virtues of treating your file system as a *persistent data structure*
-Thus, the insights of this post are equally applicable to other
+Docker I'd like to make clear that this post is really about the virtues of treating your file system as a *persistent data structure*. Thus, the insights of this post are equally applicable to other
 [copy-on-write](http://en.wikipedia.org/wiki/Copy-on-write) filesystems such as [btrfs](http://en.wikipedia.org/wiki/Btrfs), and [ZFS](http://en.wikipedia.org/wiki/ZFS).
 
 
@@ -28,35 +26,36 @@ But the most salient feature was that it took a long time to run.
 ## Filesystems are inherently stateful
 
 We typically interact with filesystems in a stateful way. We might add, delete
-or move a file. We might change a file's permissions or its access times. In isolation most actions can be undone. e.g. you can move a file back to its
-original location after having moved it somewhere else. What we don't typically do is take a snapshot and revert back to that state.
+or move a file. We might change a file's permissions or its access times. In isolation most actions can be undone. e.g. you can move a file back to its original location after having moved it somewhere else.
+What we don't typically do is take a snapshot and revert back to that state. This post will suggest
+that making more use of this feature can be a great boon to developing long running build scripts.
 
 ## Snapshots using union mounts
 
 Docker uses what is called a *union filesystem* called [AUFS](http://en.wikipedia.org/wiki/Aufs).
 A union filesystem implements what is known as a
 [union mount](http://en.wikipedia.org/wiki/Union_mount). As the name suggests this means
-that files and directories of separate file system are overlaid forming a single coherent file system.
-This is done in a hierarchical manner. If a file appears in two filesystems the one further
-up the hierarchy will be the one presented. (The version of the file further down the hierarchy
-is there, unchanged.)
+that files and directories of separate file systems are layered on top of each other forming a
+single coherent file system. This is done in a hierarchical manner. If a file appears in two
+filesystems the one further up the hierarchy will be the one presented. (The version of the file
+further down the hierarchy is there, unchanged.)
 
 Docker calls each filesystem in the union mount a [layer](https://docs.docker.com/terms/layer).
-The upshot of using this technology under the hood is that it implements snapshots as a side effect.
+The upshot of using this technology is that it implements snapshots as a side effect.
 Each snapshot is a simply a union mount of all the layers up to a certain point in the hierarchy.
 
 ## Snapshots for build scripts
 
 Snapshots make developing a long-running build script a dream. The general idea is to break up the
-script up into smaller scripts (which I like to call *scriptlets*) and ran each one individually,
-snapshotting the filesystem after each one is run. If you find that a scriptlet fails, one simply
-has to go back to the last snapshot (still in its pristine state!) and try again. Once you
-have completed your build script you have a very high assurance that the script works and can
-now be distributed to others.
+script up into smaller scripts (which I like to call *scriptlets*) and run each one individually,
+snapshotting the filesystem after each one is run. (Docker does this automatically.)
+If you find that a scriptlet fails, one simply has to go back to the last snapshot (still in its
+pristine state!) and try again. Once you have completed your build script you have a very high
+assurance that the script works and can now be distributed to others.
 
 Constrast this with what would happen if you weren't using snapshots. Except for those among us
 with monk-like patience, no one is going to going to run their build script from scratch when
-it fails an hour and a half into building. Of course, we'll try out best to put the system
+it fails an hour and a half into building. Of course, we'll try our best to put the system
 back into the state it was in before we try to build the component that failed last time. We might
 delete a directory or run a <code>make clean</code>. But we might not have perfect understanding
 of the component we're trying to build. It might have a complicated <code>Makefile</code> that
@@ -71,21 +70,21 @@ not perfect. I did some things that might look wasteful or inelegant but were ne
 to keep the total time developing the script to a minimum. The build script can be found
 [here](https://github.com/sseefried/docker-build-ghc-android).
 
-### <code>Dockerfile</code>s
+### Building with a <code>Dockerfile</code>
 
-The command <code>docker build</code> uses a file called <code>Dockerfile</code> containing a small
-vocabulary of *commands* to specify what actions should be performed in order to build an image.
+Docker uses a file called <code>Dockerfile</code> to build images. A <code>Dockerfile</code> contains
+a small vocabulary of *commands* to specify what actions should be performed.
 A complete reference can be found [here](https://docs.docker.com/reference/builder/). The main
-ones used in the script are <code>WORKDIR</code>, <code>ADD</code>, and <code>RUN</code>. The
-<code>ADD</code> command is particularly useful because it allows you to add files *external* to
-the current Docker image into the image's filesystem before running them. You can see the
+ones used in my script are <code>WORKDIR</code>, <code>ADD</code>, and <code>RUN</code>. The
+<code>ADD</code> command is particularly useful because it allows you to add files that *external* to
+the current Docker image *into* the image's filesystem before running them. You can see the
 many scriptlets that make up the build script [here](https://github.com/sseefried/docker-build-ghc-android/tree/master/user-scripts).
 
 ### Design
 
 #### 1. <code>ADD</code> scriptlets just before you <code>RUN</code> them.
 
-If you add all the scriptlets early in the <code>Dockerfile</code> you may run into the following
+If you <code>ADD</code> all the scriptlets too early in the <code>Dockerfile</code> you may run into the following
 problem: your script fails, you go back to modify the scriptlet and you run <code>docker build .</code>
 again. But you find that Docker starts building at the point where the scriptlets were first
 added! This wastes a lot of time and defeats the purpose of using Docker.
@@ -110,12 +109,12 @@ A more detailed explanation of Docker's *build cache* can be found [here](https:
 
 It may seem tempting to use the <code>ENV</code> command to set up all the environment variables
 you need for your build script. However, it does not perform variable substitution the way
-a shell would. e.g. <code>ENV BASE=$HOME/base</code> will set <code>BASE</code> to have the
+a shell would. e.g. <code>ENV BASE=\$HOME/base</code> will set <code>BASE</code> to have the
 literal value <code>$HOME/base</code> which is probably not what you want.
 
 Instead I used the <code>ADD</code> command to add a file called
 [<code>set-env.sh</code>](https://github.com/sseefried/docker-build-ghc-android/blob/master/user-scripts/set-env.sh).
-This file is included in each subsequent scriptlet with
+This file is included in each subsequent scriptlet with:
 
 
     THIS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
