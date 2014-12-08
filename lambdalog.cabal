@@ -27,5 +27,6 @@ executable         Site
                    filepath,
                    old-locale,
                    containers,
-                   hakyll,
-                   pandoc
+                   pandoc == 1.13.1,
+                   hakyll == 4.6.1.0
+
