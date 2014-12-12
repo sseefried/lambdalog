@@ -1,8 +1,8 @@
 ---
-title: Snapshots make build scripts easy
+title: File system snapshots make build scripts easy
 category: tools
 tags: Docker,
-date: 2014-12-08
+date: 2001-01-01
 ---
 ## or, how Docker can relieve the pain of developing long running build scripts
 
@@ -55,12 +55,11 @@ assurance that the script works and can now be distributed to others.
 
 Constrast this with what would happen if you weren't using snapshots. Except for those among us
 with monk-like patience, no one is going to going to run their build script from scratch when
-it fails an hour and a half into building. Of course, we'll try our best to put the system
-back into the state it was in before we try to build the component that failed last time. We might
-delete a directory or run a <code>make clean</code>. But we might not have perfect understanding
-of the component we're trying to build. It might have a complicated <code>Makefile</code> that
-puts files in places on the file system which we are unaware of. The only way to be *truly* sure
-is to revert to a snapshot.
+it fails an hour and a half into building. Naturally, we'll try our best to put the system
+back into the state it was in before we try to build the component that failed last time. e.g. we
+might delete a directory or run a <code>make clean</code>.
+
+However, we might not have perfect understanding of the component we're trying to build. It might have a complicated <code>Makefile</code> that puts files in places on the file system which we are unaware of. The only way to be *truly* sure is to revert to a snapshot.
 
 ## Using Docker for snapshotted build scripts
 
@@ -72,8 +71,7 @@ to keep the total time developing the script to a minimum. The build script can 
 
 ### Building with a <code>Dockerfile</code>
 
-Docker uses a file called <code>Dockerfile</code> to build images. A <code>Dockerfile</code> contains
-a small vocabulary of *commands* to specify what actions should be performed.
+Docker reads from a file called <code>Dockerfile</code> to build images. A <code>Dockerfile</code> contains a small vocabulary of *commands* to specify what actions should be performed.
 A complete reference can be found [here](https://docs.docker.com/reference/builder/). The main
 ones used in my script are <code>WORKDIR</code>, <code>ADD</code>, and <code>RUN</code>. The
 <code>ADD</code> command is particularly useful because it allows you to add files that *external* to
@@ -101,7 +99,7 @@ the build. Even if they wouldn't it must be conservative.
 Also, beware using <code>RUN</code> commands that would cause different changes to the filesystem
 each time they are run. In this case Docker *will* find the intermediate image and use it, but
 this will be the wrong thing for it to do. <code>RUN</code> commands must cause the same
-change to the filesystem each time they are run. An an example, in my scriptlets I ensured that I
+change to the filesystem each time they are run. As an example, I ensured that in my scriptlets I
 always downloaded a known version of a file with a specific MD5 checksum.
 
 A more detailed explanation of Docker's *build cache* can be found [here](https://docs.docker.com/articles/dockerfile_best-practices/#build-cache).
