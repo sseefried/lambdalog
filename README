@@ -1,6 +1,10 @@
 My blog in Hakyll
 
-Installation
-------------
+# Development
 
-$ nix-build release.nix
+    $ nix-shell --attr env release.nix
+
+# Installation
+
+    $ nix-build release.nix
+

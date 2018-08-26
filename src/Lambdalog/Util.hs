@@ -6,7 +6,7 @@ import           Data.List (intercalate)
 import           Data.Maybe (fromMaybe)
 import qualified Data.HashMap.Strict as M
 import           Data.Time.Clock (UTCTime)
-import           Data.Time.Format (parseTime, formatTime, defaultTimeLocale)
+import           Data.Time.Format (parseTimeM, formatTime, defaultTimeLocale)
 import qualified Data.Text as T
 import           Hakyll
 import           System.FilePath.Posix
@@ -44,7 +44,7 @@ splitDate :: String -> (String, String, String)
 splitDate filePath = fromMaybe defaultValue $ do
         let dateString = intercalate "-" $ take 3
                        $ splitAll "-" $ takeFileName filePath
-        time <- parseTime defaultTimeLocale
+        time <- parseTimeM True defaultTimeLocale
                           "%Y-%m-%d"
                           dateString :: Maybe UTCTime
         return $ (aux "%e" time, aux "%b" time, aux "%Y" time)

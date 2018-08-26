@@ -1,5 +1,5 @@
-{ mkDerivation, base, containers, filepath, hakyll, old-locale
-, pandoc, stdenv, time
+{ mkDerivation, aeson, base, containers, filepath, hakyll, pandoc
+, stdenv, text, time, unordered-containers
 }:
 mkDerivation {
   pname = "LambdaLog";
@@ -8,7 +8,8 @@ mkDerivation {
   isLibrary = false;
   isExecutable = true;
   executableHaskellDepends = [
-    base containers filepath hakyll old-locale pandoc time
+    aeson base containers filepath hakyll pandoc text time
+    unordered-containers
   ];
   homepage = "http://lambdalog.seanseefried.com";
   description = "My blog";

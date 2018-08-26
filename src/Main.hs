@@ -2,7 +2,6 @@
 module Main where
 
 import Text.Pandoc (writerHTMLMathMethod, HTMLMathMethod(..))
-import Data.Monoid
 import Hakyll
 
 -- friends
