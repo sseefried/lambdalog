@@ -12,21 +12,17 @@ cabal-version:     >= 1.16
 build-type:        Simple
 homepage:          http://lambdalog.seanseefried.com
 
-build-depends: base
-
 executable         Site
     default-language:  Haskell2010
     ghc-options: -Wall -threaded
-
-
     main-is:       Site.hs
     hs-source-dirs: .
 
-    build-depends: base,
-                   time,
-                   filepath,
-                   old-locale,
-                   containers,
-                   pandoc == 1.13.1,
-                   hakyll == 4.6.1.0
+    build-depends: base
+                 , time
+                 , filepath
+                 , old-locale
+                 , containers
+                 , pandoc
+                 , hakyll
 
