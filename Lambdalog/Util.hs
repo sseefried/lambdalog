@@ -1,14 +1,16 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Lambdalog.Util where
 
-import Hakyll
-import Data.List (intercalate)
-import Data.Maybe (fromMaybe)
-import Data.Time.Clock (UTCTime)
-import Data.Time.Format (parseTime, formatTime)
-import System.FilePath.Posix
-import System.Locale (defaultTimeLocale)
-import Data.Monoid
-import qualified Data.Map as M
+import qualified Data.Aeson as A
+import           Data.List (intercalate)
+import           Data.Maybe (fromMaybe)
+import qualified Data.HashMap.Strict as M
+import           Data.Time.Clock (UTCTime)
+import           Data.Time.Format (parseTime, formatTime, defaultTimeLocale)
+import qualified Data.Text as T
+import           Hakyll
+import           System.FilePath.Posix
+
 
 
 dayFieldContext :: Context a
@@ -64,6 +66,9 @@ draftDisqusIdContext = disqusIdGen "draft-"
 
 disqusIdGen :: String -> Context String
 disqusIdGen prefix = field "disqusId" $ \item -> do
-  let path = toFilePath . itemIdentifier $ item
-  metadata <- getMetadata (itemIdentifier item)
-  return $ prefix ++ (fromMaybe (take 80 . takeBaseName $ path) $ M.lookup "title" metadata)
+    let path = toFilePath . itemIdentifier $ item
+    metadata <- getMetadata (itemIdentifier item)
+    return $ prefix ++ (fromMaybe (take 80 . takeBaseName $ path) $ (T.unpack . unString) <$> M.lookup "title" metadata)
+  where
+    unString (A.String s) = s
+    unString _ = error "Can't unstring this value"

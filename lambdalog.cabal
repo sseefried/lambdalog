@@ -18,11 +18,16 @@ executable         Site
     main-is:       Site.hs
     hs-source-dirs: .
 
-    build-depends: base
-                 , time
-                 , filepath
-                 , old-locale
+    other-modules: Lambdalog.Util
+
+    build-depends: aeson
+                 , base
                  , containers
-                 , pandoc
+                 , filepath
                  , hakyll
+                 , old-locale
+                 , pandoc
+                 , text
+                 , time
+                 , unordered-containers
 

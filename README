@@ -3,7 +3,4 @@ My blog in Hakyll
 Installation
 ------------
 
-Use GHC 7.6.3
-
-$ cabal sandbox init
-$ cabal install
+$ nix-build release.nix
