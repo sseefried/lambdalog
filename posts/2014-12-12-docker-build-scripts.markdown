@@ -1,8 +1,7 @@
 ---
 title: File system snapshots make build scripts easy
 category: tools
-tags: Docker,
-date: 2001-01-01
+tags: Docker, snapshots, union mount, union filesystem, Haskell, GHC
 ---
 ## or, how Docker can relieve the pain of developing long running build scripts
 
