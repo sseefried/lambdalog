@@ -5,16 +5,32 @@ tags: Docker, snapshots, union mount, union filesystem, Haskell, GHC
 ---
 ## or, how Docker can relieve the pain of developing long running build scripts
 
+----
+
+**Update: 01 Sep 2018** _I really didn't know much about Nix when I wrote this
+post. Were I to do this again I would now almost certainly use Nix. Also, there
+seemed to be a fair amount of misunderstanding about this blog post. The post is
+not about the end result. It was about the process of developing the build
+script in the first place. I wanted to make the development of the build script
+faster. To do this I had to minimise the amount of time spent waiting for
+portions of the system to build that I already knew built just fine._
+
+----
 
 I think I've found a pretty compelling use case for Docker.
 But before you think that this is yet another blog post parroting the virtues of
-Docker I'd like to make clear that this post is really about the virtues of treating your file system as a *persistent data structure*. Thus, the insights of this post are equally applicable to other
-[copy-on-write](http://en.wikipedia.org/wiki/Copy-on-write) filesystems such as [btrfs](http://en.wikipedia.org/wiki/Btrfs), and [ZFS](http://en.wikipedia.org/wiki/ZFS).
+Docker I'd like to make clear that this post is really about the virtues of
+treating your file system as a *persistent data structure*. Thus, the insights
+of this post are equally applicable to other
+[copy-on-write](http://en.wikipedia.org/wiki/Copy-on-write)
+filesystems such as [btrfs](http://en.wikipedia.org/wiki/Btrfs),
+and [ZFS](http://en.wikipedia.org/wiki/ZFS).
 
 
 ## The problem
 
-Let's start with the problem I was trying to solve. I was developing a long running build script that consisted of numerous steps.
+Let's start with the problem I was trying to solve. I was developing a long
+running build script that consisted of numerous steps.
 
 * It took 1-2 hours to run.
 * It downloaded many fairly large files from the Internet. (One exceeded 300M.)
@@ -25,9 +41,12 @@ But the most salient feature was that it took a long time to run.
 ## Filesystems are inherently stateful
 
 We typically interact with filesystems in a stateful way. We might add, delete
-or move a file. We might change a file's permissions or its access times. In isolation most actions can be undone. e.g. you can move a file back to its original location after having moved it somewhere else.
-What we don't typically do is take a snapshot and revert back to that state. This post will suggest
-that making more use of this feature can be a great boon to developing long running build scripts.
+or move a file. We might change a file's permissions or its access times. In
+isolation most actions can be undone. e.g. you can move a file back to its
+original location after having moved it somewhere else. What we don't typically
+do is take a snapshot and revert back to that state. This post will suggest that
+making more use of this feature can be a great boon to developing long running
+build scripts.
 
 ## Snapshots using union mounts
 

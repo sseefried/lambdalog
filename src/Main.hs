@@ -13,18 +13,48 @@ lambdalogItemCompiler = pandocCompilerWith defaultHakyllReaderOptions opts
     opts = defaultHakyllWriterOptions {
       writerHTMLMathMethod = MathJax "http://cdn.mathjax.org/mathjax/latest/MathJax.js" }
 
+
+postsGlob :: Pattern
+postsGlob = "posts/*"
+
+getCachedPosts :: Compiler [Item String]
+getCachedPosts =
+  recentFirst =<< (loadAllSnapshots (postsGlob .&&. hasVersion "cache") "postBody")
+
+postsListField :: String -> Tags -> [Item String] -> Context String
+postsListField name tags posts = listField name (postContext False tags) (return posts)
+
+numRecent :: Int
+numRecent = 10
+
+cachePosts :: Rules ()
+cachePosts = do
+  -- Render posts
+  match postsGlob $ version "cache" $ do
+  --  let ctx = postContext False tags
+    compile $ lambdalogItemCompiler
+      -- this snapshot is vital when we go to render the 3 latest posts in index.html
+      -- see use of [loadAllSnapshots]
+      >>= saveSnapshot "postBody"
+
+loadAndApplyDefault :: Tags -> [Item String] -> (Item String -> Compiler (Item String))
+loadAndApplyDefault tags posts = do
+  let newCtx = defaultContext <> listField "posts" (postContext False tags) (return $ take numRecent posts)
+  loadAndApplyTemplate "templates/default.html" newCtx
+
 renderPostsGen :: Bool -> Pattern -> Tags -> Rules ()
 renderPostsGen isDraft glob tags = do
   -- Render posts
   match glob $ do
     route   $ setExtension ".html"
-    compile $ lambdalogItemCompiler
-      -- this snapshot is vital when we go to render the 3 latest posts in index.html
-      -- see use of [loadAllSnapshots]
-      >>= saveSnapshot "postBody"
-      >>= loadAndApplyTemplate "templates/post.html"    (postContext isDraft tags)
-      >>= loadAndApplyTemplate "templates/default.html" defaultContext
-      >>= relativizeUrls
+    let ctx = postContext isDraft tags
+    compile $ do
+      -- to avoid a circular dependency we only load snapshots that have version "cache"
+      posts <- getCachedPosts
+      lambdalogItemCompiler
+        >>= loadAndApplyTemplate "templates/post.html"    ctx
+        >>= loadAndApplyDefault tags posts
+        >>= relativizeUrls
 
 renderPosts :: Tags -> Rules ()
 renderPosts = renderPostsGen False "posts/*"
@@ -32,16 +62,16 @@ renderPosts = renderPostsGen False "posts/*"
 renderDrafts :: Tags -> Rules ()
 renderDrafts = renderPostsGen True "drafts/*"
 
-renderPostsList :: Bool -> Tags -> Pattern -> String -> Rules ()
-renderPostsList isDraft tags glob page  = do
+renderPostsList :: Tags -> String -> Rules ()
+renderPostsList tags page  = do
   create [fromFilePath page] $ do
     route idRoute
     compile $ do
-      posts <- recentFirst =<< (loadAllSnapshots glob "postBody" :: Compiler [Item String])
-      let ctx = listField "posts" (postContext isDraft tags) (return posts)
+      posts <- getCachedPosts
+      let ctx = postsListField "posts" tags posts
       makeItem ("" :: String) -- this means that [page] doesn't need to exist in the source repo.
         >>= loadAndApplyTemplate "templates/posts.html" ctx
-        >>= loadAndApplyTemplate "templates/default.html" defaultContext
+        >>= loadAndApplyDefault tags posts
         >>= relativizeUrls
 
 renderTagsPages :: Tags -> Rules ()
@@ -53,14 +83,14 @@ renderTagsPages tags = do
     -- Copied from posts, need to refactor
     route idRoute
     compile $ do
-      posts <- recentFirst =<< loadAll pattern
+      posts <- recentFirst =<< loadAll (pattern .&&. hasVersion "cache")
       let ctx = constField "title" title <>
-                  listField "posts" (postContext False tags) (return posts) <>
+                  postsListField "posts" tags posts <>
                   constField "tag" tag <>
                   defaultContext
       makeItem ""
           >>= loadAndApplyTemplate "templates/posts-with-tag.html" ctx
-          >>= loadAndApplyTemplate "templates/default.html" ctx
+          >>= loadAndApplyDefault tags posts
           >>= relativizeUrls
 
 compileImages :: Pattern -> Rules ()
@@ -80,26 +110,28 @@ main = hakyll $ do
   -- Compile images
   compileImages "static/sharing-recovery/images/*"
   tags <- buildTags "posts/*" (fromCapture "tags/*.html")
+  cachePosts
   renderPosts tags
   renderDrafts tags
   renderTagsPages tags
-  renderPostsList False tags "posts/*"  "posts.html"
-  renderPostsList True tags "drafts/*" "drafts.html"
+  renderPostsList tags "posts.html"
+--  renderPostsList True tags "drafts/*" "drafts.html"
   -- Render RSS feed
   create ["rss.xml"] $ do
     route idRoute
     compile $ do
-      loadAllSnapshots "posts/*" "postBody"
+      loadAllSnapshots ("posts/*" .&&. hasVersion "cache") "postBody"
         >>= fmap (take 10) . recentFirst
         >>= renderRss feedConfiguration feedCtx
-  match "index.html" $ do
+  create [ "index.html" ] $ do
     route idRoute
     compile $ do
-      posts <- fmap (take 3) . recentFirst =<< loadAllSnapshots "posts/*" "postBody"
-      let indexContext = listField "posts" (postContext False tags) (return posts)
-      getResourceBody
-        >>= applyAsTemplate indexContext
-        >>= loadAndApplyTemplate "templates/default.html" defaultContext
+      posts <- recentFirst =<< loadAllSnapshots ("posts/*" .&&. hasVersion "cache") "postBody"
+      let last3Posts = take 3 posts
+      let indexContext = listField "last3Posts" (postContext False tags) (return last3Posts)
+      makeItem ("" :: String)
+        >>= loadAndApplyTemplate "templates/index.html"   indexContext
+        >>= loadAndApplyDefault tags posts
         >>= relativizeUrls
 
 feedConfiguration :: FeedConfiguration

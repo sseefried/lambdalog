@@ -10,3 +10,4 @@ tags/
 cabal.sandbox.config
 dist/
 dist-newstyle
+result

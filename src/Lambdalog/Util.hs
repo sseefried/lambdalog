@@ -38,6 +38,7 @@ postContext draft tags =
           , dateField "date" "%d %b %Y"
           -- FIXME: set this properly
           , if draft then draftDisqusIdContext else disqusIdContext
+          , constField "nav" ""
           , defaultContext ]
 
 splitDate :: String -> (String, String, String)
